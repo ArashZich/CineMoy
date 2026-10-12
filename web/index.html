@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#110c1b">
+  <title>CineMoy</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap">
+  <link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+  <header id="topbar">
+    <a class="brand" href="#/" tabindex="-1" aria-label="CineMoy home"><img src="logo.svg" alt=""><span>Cine<b>Moy</b></span></a>
+    <nav>
+      <a class="tab focusable" href="#/" data-tab="home" tabindex="0">Home</a>
+      <a class="tab focusable" href="#/movies" data-tab="movie" tabindex="0">Movies</a>
+      <a class="tab focusable" href="#/series" data-tab="series" tabindex="0">Series</a>
+    </nav>
+    <form id="searchForm" role="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="searchInput" type="search" placeholder="Search" autocomplete="off" class="focusable" aria-label="Search movies and series">
+    </form>
+    <button id="settingsBtn" class="icon-btn focusable" title="Settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </header>
+
+  <main id="view"></main>
+
+  <!-- Player overlay -->
+  <section id="player" hidden>
+    <video id="video" playsinline preload="auto"></video>
+    <div id="subOverlay" aria-live="off"></div>
+    <div id="loading" hidden><div class="spinner"></div><div id="loadingText">Connecting to peers…</div></div>
+    <div id="controls">
+      <div class="ctl-top">
+        <button class="icon-btn focusable" id="pBack" aria-label="Back">←</button>
+        <div id="pTitle"></div>
+        <div id="pStats"></div>
+      </div>
+      <div class="ctl-bottom">
+        <div id="seek" class="focusable" tabindex="0" role="slider" aria-label="Seek">
+          <div id="seekBuf"></div><div id="seekFill"></div><div id="seekThumb"></div>
+        </div>
+        <div class="ctl-row">
+          <button class="icon-btn focusable" id="pPlay" aria-label="Play/Pause">▶</button>
+          <button class="icon-btn focusable" id="pRew" aria-label="Back 10 seconds">⟲10</button>
+          <button class="icon-btn focusable" id="pFwd" aria-label="Forward 10 seconds">10⟳</button>
+          <span id="pTime">0:00 / 0:00</span>
+          <span class="spacer"></span>
+          <button class="pill focusable" id="pNext" hidden>Next episode ⏭</button>
+          <button class="pill focusable" id="pAudio" hidden>Audio</button>
+          <button class="pill focusable" id="pSubs">Subtitles</button>
+          <button class="icon-btn focusable" id="pFull" aria-label="Fullscreen">⛶</button>
+        </div>
+      </div>
+    </div>
+    <aside id="panel" hidden></aside>
+  </section>
+
+  <dialog id="settings"></dialog>
+  <div id="toast" hidden></div>
+
+  <script src="app.js?v=4" type="module"></script>
+</body>
+</html>

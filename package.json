@@ -1,0 +1,42 @@
+{
+  "name": "cinemoy",
+  "version": "0.1.0",
+  "description": "Compact movie/series streaming app: Cinemeta catalog + Torrentio streams + Farsi subtitles. Runs on Windows (Electron), web and TV browsers.",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "start": "node server/index.js",
+    "desktop": "electron .",
+    "build:win": "electron-builder --win portable nsis"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "express": "^4.21.2",
+    "iconv-lite": "^0.6.3",
+    "webtorrent": "^3.0.21"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "app.cinemoy",
+    "productName": "CineMoy",
+    "files": [
+      "server/**",
+      "web/**",
+      "electron/**",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "icon": "build/icon.png"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
