@@ -13,13 +13,24 @@ A compact movie & series streaming app:
 
 ```
  ┌──────────── UI (web/) ────────────┐        ┌──────────── server/ (Node) ─────────────┐
- │ Windows (Electron) · browser · TV │ ─HTTP→ │ Cinemeta · Torrentio · subtitles · torrent│
+ │ Windows · Android · browser · TV  │ ─HTTP→ │ Cinemeta · Torrentio · subtitles · torrent│
  └───────────────────────────────────┘        │ engine → HTTP video stream · ffmpeg (opt.)│
                                               └──────────────────────────────────────────┘
 ```
 
-Torrents can't run inside a browser or TV (they need raw TCP/UDP), so the **server** is the engine. On Windows the
-desktop app runs it for you. For TVs and phones, run it on any PC/NAS in the house and open its address.
+Torrents can't run inside a browser (they need raw TCP/UDP), so the **server** is the engine. The Windows and Android
+apps run it inside the app; for other TVs, run it on any PC/NAS in the house and open its address.
+
+## Apps
+
+| Platform | File | Engine | Player |
+|---|---|---|---|
+| **Windows** | `dist/CineMoy Setup <ver>.exe` (installer) or `dist/CineMoy-<ver>-portable.exe` | built in | Chromium (+ ffmpeg compatibility mode if installed) |
+| **Android phone/tablet + Android TV / Google TV** (one APK) | `android/app/build/outputs/apk/release/app-<abi>-release.apk` | built in (Node 18 via nodejs-mobile) | native ExoPlayer: HEVC, AV1, 4K/HDR, AC3/E-AC3, DTS, TrueHD (FFmpeg) |
+
+Android APKs: `app-arm64-v8a-release.apk` for most phones and newer TVs, `app-armeabi-v7a-release.apk` for many
+Android TV boxes/sticks (32-bit), `app-universal-release.apk` if unsure (larger). Minimum Android 7.0.
+On Android, subtitles appear as tracks in the player (⚙ / CC button); the best Farsi one is on by default.
 
 ## Run
 
@@ -40,6 +51,15 @@ Build an installer and a portable `.exe` (output in `dist/`):
 ```bash
 npm run build:win
 ```
+
+**Android (phone + TV)**: requires Android Studio (for its Java + SDK). Downloads nodejs-mobile on first run.
+
+```bash
+npm run build:android
+```
+
+Release signing uses `android/keystore.properties` + `android/cinemoy-release.jks` (never committed). Keep a backup of
+both: Android only installs updates signed with the same key. Without them the debug key is used.
 
 **Web / TV server**
 
@@ -96,6 +116,8 @@ server/torrent.js    WebTorrent engine → ranged HTTP video streams
 server/transcode.js  optional ffmpeg probe / transcode
 web/                 single-page UI (no build step)
 electron/main.cjs    Windows desktop wrapper
+android/             Android app: NodeEngine (runs the bundled server), MainActivity (WebView UI), PlayerActivity (ExoPlayer)
+scripts/             bundle-server.mjs (Node 18 bundle for Android), fetch-libnode.mjs, build-android.mjs
 ```
 
 **Adding a subtitle source:** write an async function in `server/subtitles.js` that returns

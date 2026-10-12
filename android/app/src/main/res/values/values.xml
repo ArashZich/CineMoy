@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CineMoy</string>
+
+    <color name="bg">#110C1B</color>
+    <color name="violet">#2A1745</color>
+    <color name="coral">#FF6F61</color>
+
+    <style name="Theme.CineMoy" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:colorAccent">@color/coral</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+    </style>
+
+    <style name="Theme.CineMoy.Player" parent="Theme.CineMoy">
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+</resources>

@@ -1,6 +1,7 @@
 // Subtitle aggregation: finds Farsi (or other) subtitles from several providers,
 // downloads them, fixes encoding (Windows-1256 is common for Persian) and returns cues.
 import crypto from 'node:crypto';
+import { isUtf8 } from 'node:buffer';
 import AdmZip from 'adm-zip';
 import iconv from 'iconv-lite';
 
@@ -116,13 +117,12 @@ function pickFromZip(buf, season, episode) {
 function decode(buf, hint, lang) {
   if (buf[0] === 0xff && buf[1] === 0xfe) return iconv.decode(buf.subarray(2), 'utf16le');
   if (buf[0] === 0xfe && buf[1] === 0xff) return iconv.decode(buf.subarray(2), 'utf16be');
-  try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(buf).replace(/^﻿/, '');
-  } catch {
-    let enc = (hint || '').toLowerCase().replace(/^cp/, 'windows-');
-    if (!enc || enc.includes('utf') || !iconv.encodingExists(enc)) enc = lang === 'en' ? 'windows-1252' : 'windows-1256';
-    return iconv.decode(buf, enc);
-  }
+  // isUtf8 (not TextDecoder's fatal mode): Node on Android is built without full ICU,
+  // where the strict TextDecoder throws even for valid UTF-8.
+  if (isUtf8(buf)) return buf.toString('utf8').replace(/^﻿/, '');
+  let enc = (hint || '').toLowerCase().replace(/^cp/, 'windows-');
+  if (!enc || enc.includes('utf') || !iconv.encodingExists(enc)) enc = lang === 'en' ? 'windows-1252' : 'windows-1256';
+  return iconv.decode(buf, enc);
 }
 
 const toSec = (h, m, s, ms) => (+h) * 3600 + (+m) * 60 + (+s) + (+(ms || 0).toString().padEnd(3, '0')) / 1000;
@@ -161,6 +161,19 @@ export function parseBuffer(buf, lang, { hint, season, episode } = {}) {
   const cues = parse(text);
   if (!cues.length) throw new Error('Could not parse subtitle file');
   return cues;
+}
+
+// WebVTT for native players (Android ExoPlayer). offset (seconds) shifts every cue.
+const vttTime = s => {
+  const ms = Math.round(Math.max(0, s) * 1000);
+  const p = (n, w = 2) => String(n).padStart(w, '0');
+  return `${p(Math.floor(ms / 3600000))}:${p(Math.floor(ms / 60000) % 60)}:${p(Math.floor(ms / 1000) % 60)}.${p(ms % 1000, 3)}`;
+};
+export function toVtt(cues, offset = 0) {
+  return 'WEBVTT\n\n' + cues
+    .filter(c => c.e + offset > 0)
+    .map(c => `${vttTime(c.s + offset)} --> ${vttTime(c.e + offset)}\n${c.t.replace(/-->/g, '→').replace(/\n\s*\n/g, '\n')}`)
+    .join('\n\n') + '\n';
 }
 
 export async function fetchCues(ref) {

@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node server/index.js",
     "desktop": "electron .",
-    "build:win": "electron-builder --win portable nsis"
+    "build:win": "electron-builder --win portable nsis",
+    "bundle:android": "node scripts/bundle-server.mjs",
+    "build:android": "node scripts/build-android.mjs"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
@@ -17,7 +19,8 @@
   },
   "devDependencies": {
     "electron": "^33.2.1",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.24.2"
   },
   "build": {
     "appId": "app.cinemoy",
@@ -34,7 +37,19 @@
         "portable"
       ]
     },
-    "icon": "build/icon.png"
+    "icon": "build/icon.png",
+    "npmRebuild": false,
+    "directories": {
+      "output": "dist"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "CineMoy"
+    },
+    "portable": {
+      "artifactName": "CineMoy-${version}-portable.exe"
+    }
   },
   "engines": {
     "node": ">=18"

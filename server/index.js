@@ -1,14 +1,16 @@
 // CineMoy server: serves the web UI + API + torrent streaming engine.
 // Run standalone (`npm start`) for web/TV use, or embedded by Electron on Windows.
+import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import * as addons from './addons.js';
 import * as subs from './subtitles.js';
 import * as torrent from './torrent.js';
 import * as ffmpeg from './transcode.js';
+import { options } from './options.js';
 
 const WEB_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web');
 
@@ -78,6 +80,11 @@ export function createApp(ctx) {
     res.json({ cues: await subs.fetchCues(req.params.ref) });
   }));
 
+  app.get('/api/subtitle/:ref/vtt', wrap(async (req, res) => {
+    const cues = await subs.fetchCues(req.params.ref);
+    res.type('text/vtt; charset=utf-8').send(subs.toVtt(cues, Number(req.query.offset) || 0));
+  }));
+
   // Local subtitle file uploaded from the player ("Load from file…").
   app.post('/api/parse', express.raw({ type: '*/*', limit: '8mb' }), wrap(async (req, res) => {
     res.json({ cues: subs.parseBuffer(req.body, String(req.query.lang || 'fa')) });
@@ -102,7 +109,7 @@ export function createApp(ctx) {
   return app;
 }
 
-export function startServer({ port = Number(process.env.PORT) || 7070, host = process.env.HOST || '0.0.0.0' } = {}) {
+export function startServer({ port = options.port, host = options.host } = {}) {
   // The app needs its real port (port 0 = random) for internal ffmpeg → stream URLs.
   const ctx = { port };
   const app = createApp(ctx);
@@ -120,11 +127,14 @@ function lanAddresses() {
     .filter(i => i && i.family === 'IPv4' && !i.internal).map(i => i.address);
 }
 
-const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+// Compare real paths: on Android the app's files dir is reached through a symlink
+// (/data/user/0/… → /data/data/…), so the URL and argv spellings differ.
+const realOrSelf = p => { try { return fs.realpathSync(p); } catch { return p; } };
+const isMain = !!process.argv[1] && realOrSelf(fileURLToPath(import.meta.url)) === realOrSelf(path.resolve(process.argv[1]));
 if (isMain) {
   const { port } = await startServer();
   console.log(`CineMoy running:\n  http://localhost:${port}`);
-  for (const ip of lanAddresses()) console.log(`  http://${ip}:${port}   (open this on your TV / phone)`);
+  if (options.host === '0.0.0.0') for (const ip of lanAddresses()) console.log(`  http://${ip}:${port}   (open this on your TV / phone)`);
   console.log(ffmpeg.available ? 'ffmpeg found: compatibility mode enabled.' : 'ffmpeg not found: HEVC/AC3/DTS files may not play. Install ffmpeg to enable compatibility mode.');
   const stop = () => { torrent.shutdown(); process.exit(0); };
   process.on('SIGINT', stop);

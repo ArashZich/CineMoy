@@ -1,10 +1,10 @@
 // Torrent engine: turns an infoHash (+ file index) into a seekable HTTP stream.
-import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 import WebTorrent from 'webtorrent';
+import { options } from './options.js';
 
-const CACHE_DIR = path.join(os.tmpdir(), 'cinemoy-cache');
+const CACHE_DIR = options.cacheDir;
 const MAX_ACTIVE = 2;          // torrents kept alive at once
 const IDLE_MS = 5 * 60 * 1000; // drop torrents nobody has read from for this long
 

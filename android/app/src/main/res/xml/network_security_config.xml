@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The UI and streams come from the in-app engine over http://127.0.0.1. Cleartext is also allowed
+     so "Server address" in Settings can point at a CineMoy server on the home network. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

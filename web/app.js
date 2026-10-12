@@ -407,6 +407,7 @@ const player = (() => {
 
     st = { meta, ep, stream, directUrl, srcQuery, videoId, mode: 'direct', offset: 0, audio: 0, delay: 0, probe: null, subs: null, subRef: null, cues: [] };
     st.returnFocus = document.activeElement;
+    if (window.CineMoyAndroid) return openNative(resumeAt);
 
     $('#pTitle').textContent = meta.name + (ep ? ` — S${ep.season}E${ep.episode}${ep.title ? ' · ' + ep.title : ''}` : '');
     $('#pNext').hidden = !nextEpisode();
@@ -610,15 +611,50 @@ const player = (() => {
   applySubSize();
 
   // -------- progress / next episode
-  function saveProgress() {
-    if (!st || !total() || now() < 5) return;
+  function saveProgress(pos = now(), dur = total()) {
+    if (!st || !dur || pos < 5) return;
     const { meta, ep } = st;
     progress.save({
       id: meta.id, type: meta.type, name: meta.name, poster: meta.poster, background: meta.background, logo: meta.logo,
       year: meta.year, rating: meta.rating, runtime: meta.runtime, genres: meta.genres.slice(0, 3), description: (meta.description || '').slice(0, 400),
-      videoId: st.videoId, season: ep?.season, episode: ep?.episode, pos: now(), dur: total(),
+      videoId: st.videoId, season: ep?.season, episode: ep?.episode, pos, dur,
     });
   }
+
+  // -------- Android: playback goes to the native ExoPlayer, which decodes every common
+  // codec (HEVC, AC3/E-AC3, DTS, TrueHD…) and shows the Farsi subtitles as selectable tracks.
+  async function openNative(resumeAt) {
+    const session = st;
+    const abs = u => new URL(u, location.href).href;
+    toast('Opening player…');
+    let list = [];
+    try {
+      const p = new URLSearchParams({ langs: settings.subLangs || 'fa', subdl: settings.subdlKey || '', addons: settings.subAddons || '' });
+      const res = await Promise.race([
+        getJSON(`/api/subtitles/${st.meta.type}/${encodeURIComponent(st.videoId)}?${p}`),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000)),
+      ]);
+      list = res.subtitles.slice(0, 20);
+    } catch { /* play without subtitles */ }
+    if (st !== session) return;
+    const { meta, ep, stream } = st;
+    window.CineMoyAndroid.play(JSON.stringify({
+      url: abs(st.directUrl),
+      title: meta.name,
+      subtitle: ep ? `S${ep.season} · E${ep.episode}${ep.title ? ' · ' + ep.title : ''}` : String(meta.year || ''),
+      startMs: Math.round((resumeAt || 0) * 1000),
+      statusUrl: stream.infoHash ? abs(api(`/api/status/${stream.infoHash}`)) : '',
+      preferredSubLang: settings.autoSub ? 'fa' : '',
+      subtitles: list.map(s => ({ url: abs(api(`/api/subtitle/${s.ref}/vtt`)), label: `${s.provider} · ${s.label}`.slice(0, 90), lang: s.lang })),
+    }));
+  }
+  // Called by the Android player when it closes.
+  window.__cmNativeClosed = (posMs, durMs, ended) => {
+    if (!st) return;
+    saveProgress(posMs / 1000, durMs / 1000);
+    if (ended && nextEpisode()) { toast('Playing next episode…'); playNext(); }
+    else st = null;
+  };
 
   function nextEpisode() {
     if (!st?.ep) return null;
@@ -848,6 +884,15 @@ document.addEventListener('keydown', e => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.activeElement?.tagName === 'LABEL') document.activeElement.querySelector('input')?.click();
 });
+
+// Android's Back button calls this; returning false lets the app exit from the home screen.
+window.__cmBack = () => {
+  if ($('#settings').open) { $('#settings').close(); return true; }
+  if (player.isOpen() && !player.root.hidden) { player.close(); return true; }
+  if (isTyping()) { document.activeElement.blur(); return true; }
+  if (location.hash && location.hash !== '#/') { history.back(); return true; }
+  return false;
+};
 
 // Samsung Tizen needs media keys registered explicitly.
 try { ['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaFastForward', 'MediaRewind'].forEach(k => window.tizen?.tvinputdevice?.registerKey(k)); } catch { /* not Tizen */ }
