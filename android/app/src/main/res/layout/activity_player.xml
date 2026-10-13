@@ -11,7 +11,14 @@
         android:layout_height="match_parent"
         android:focusable="true"
         app:show_buffering="always"
-        app:show_subtitle_button="true" />
+        app:show_subtitle_button="false" />
+
+    <!-- Online subtitles, drawn by PlayerActivity (so they can be shifted for sync). -->
+    <androidx.media3.ui.SubtitleView
+        android:id="@+id/subs"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:focusable="false" />
 
     <TextView
         android:id="@+id/title"
@@ -25,16 +32,43 @@
         android:textSize="18sp"
         android:textStyle="bold" />
 
-    <TextView
-        android:id="@+id/status"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"
-        android:layout_margin="24dp"
-        android:background="@drawable/status_bg"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="6dp"
-        android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        android:visibility="gone" />
+        android:layout_margin="20dp"
+        android:gravity="end"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:id="@+id/topBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <Button
+                android:id="@+id/subsBtn"
+                style="@style/PlayerButton"
+                android:text="Subtitles" />
+
+            <Button
+                android:id="@+id/syncBtn"
+                style="@style/PlayerButton"
+                android:layout_marginStart="10dp"
+                android:text="Sync" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/status_bg"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="6dp"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:visibility="gone" />
+    </LinearLayout>
 </FrameLayout>

@@ -79,7 +79,42 @@ async function subdl(apiKey, { type, id, langs }) {
   });
 }
 
-export async function search({ type, id, langs = ['fa'], subdlKey, addons = DEFAULT_SUB_ADDONS }) {
+// --- Release matching ------------------------------------------------------
+// A subtitle made for the same release (same group, same source) is almost always in sync.
+
+const SOURCES = [
+  ['bluray', /\b(blu-?ray|bd-?rip|br-?rip|bdremux|bd25|bd50)\b/],
+  ['web', /\b(web-?dl|web-?rip|web|amzn|nf|dsnp|hmax|atvp)\b/],
+  ['hdtv', /\b(hdtv|pdtv)\b/],
+  ['dvd', /\b(dvd-?rip|dvd)\b/],
+];
+const NOISE = new Set(['mkv', 'mp4', 'avi', 'srt', 'zip', 'the', 'and', 'of', 'a', 'x264', 'x265', 'h264', 'h265', 'hevc', 'aac', 'ddp5', 'dd5', 'ac3', '1', '0']);
+
+function releaseInfo(name = '') {
+  const s = String(name).toLowerCase().replace(/\.(mkv|mp4|avi|srt|ass|ssa|vtt|zip)$/, '');
+  const group = (s.match(/-([a-z0-9]+)(?:\[[^\]]*\])?$/) || [])[1] || '';
+  return {
+    group,
+    source: (SOURCES.find(([, re]) => re.test(s)) || [])[0] || '',
+    res: (s.match(/\b(2160p|1080p|720p|480p)\b/) || [])[1] || '',
+    words: new Set(s.split(/[^a-z0-9]+/).filter(w => w.length > 1 && !NOISE.has(w))),
+  };
+}
+
+// 0 (unrelated) … ~10 (same release).
+export function matchScore(subName, release) {
+  if (!subName || !release) return 0;
+  const a = releaseInfo(subName), b = releaseInfo(release);
+  let score = 0;
+  if (a.group && a.group === b.group) score += 5;
+  if (a.source && a.source === b.source) score += 2;
+  if (a.res && a.res === b.res) score += 1;
+  const shared = [...a.words].filter(w => b.words.has(w)).length;
+  score += 2 * shared / Math.max(1, Math.min(a.words.size, b.words.size));
+  return Math.round(score * 10) / 10;
+}
+
+export async function search({ type, id, langs = ['fa'], subdlKey, addons = DEFAULT_SUB_ADDONS, release = '' }) {
   const jobs = [
     ...addons.filter(Boolean).map(a => ['addon ' + a, stremioAddon(a, { type, id, langs })]),
     ['SubDL', subdl(subdlKey, { type, id, langs })],
@@ -87,8 +122,9 @@ export async function search({ type, id, langs = ['fa'], subdlKey, addons = DEFA
   const settled = await Promise.allSettled(jobs.map(j => j[1]));
   const results = [], errors = [];
   settled.forEach((r, i) => r.status === 'fulfilled' ? results.push(...r.value) : errors.push(`${jobs[i][0]}: ${r.reason.message}`));
-  // Requested language order first, then most downloaded.
-  results.sort((a, b) => langs.indexOf(a.lang) - langs.indexOf(b.lang) || (b.downloads || 0) - (a.downloads || 0));
+  for (const s of results) s.match = Math.max(matchScore(s.label, release), matchScore(s.file, release));
+  // Requested language order first, then the closest release match, then most downloaded.
+  results.sort((a, b) => langs.indexOf(a.lang) - langs.indexOf(b.lang) || b.match - a.match || (b.downloads || 0) - (a.downloads || 0));
   return { subtitles: results, errors };
 }
 

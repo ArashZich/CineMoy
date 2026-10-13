@@ -63,6 +63,25 @@ setInterval(() => {
   for (const [h, rec] of active) if (Date.now() - rec.lastUsed > IDLE_MS) drop(h);
 }, 60000).unref();
 
+// Low-disk guard (TV boxes often have ~8 GB free). Below the limit, stop downloading whole
+// files ahead of time; pieces the player is actually reading still download, so playback goes on.
+const LOW_DISK = 1.5 * 1024 ** 3;
+export function freeDisk() {
+  try {
+    fs.mkdirSync(CACHE_DIR, { recursive: true });
+    const s = fs.statfsSync(CACHE_DIR);
+    return s.bavail * s.bsize;
+  } catch {
+    return Infinity; // statfs unsupported: no guard
+  }
+}
+let lowDisk = false;
+setInterval(() => {
+  lowDisk = freeDisk() < LOW_DISK;
+  if (!lowDisk) return;
+  for (const { torrent } of active.values()) torrent?.files?.forEach(f => f.deselect());
+}, 20000).unref();
+
 export function pickFile(torrent, fileIdx, season, episode) {
   const files = torrent.files;
   if (fileIdx != null && files[fileIdx]) return files[fileIdx];
@@ -85,7 +104,7 @@ export async function streamHandler(req, res) {
     const torrent = await getTorrent(hash, tr);
     const fileIdx = idx === 'auto' ? null : Number(idx);
     const file = pickFile(torrent, fileIdx, Number(req.query.s) || 0, Number(req.query.e) || 0);
-    file.select();
+    if (!lowDisk) file.select(); // download the whole file in the background (faster seeking)
 
     const total = file.length;
     const ext = file.name.split('.').pop().toLowerCase();
@@ -127,6 +146,7 @@ export function status(infoHash) {
     uploadSpeed: Math.round(t.uploadSpeed),
     progress: t.progress,
     name: t.name,
+    lowDisk,
   };
 }
 

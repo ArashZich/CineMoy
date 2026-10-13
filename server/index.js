@@ -13,6 +13,11 @@ import * as ffmpeg from './transcode.js';
 import { options } from './options.js';
 
 const WEB_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web');
+// package.json sits next to web/ both in the repo and in the Android bundle (dist-node).
+const VERSION = (() => {
+  try { return JSON.parse(fs.readFileSync(path.join(WEB_DIR, '..', 'package.json'), 'utf8')).version || '0.0.0'; }
+  catch { return '0.0.0'; }
+})();
 
 // Debrid links returned by Torrentio, keyed by an opaque id so ffmpeg is never
 // pointed at arbitrary client-supplied URLs.
@@ -48,6 +53,7 @@ export function createApp(ctx) {
   };
 
   app.get('/api/config', (req, res) => res.json({
+    version: VERSION,
     ffmpeg: ffmpeg.available,
     defaults: { torrentio: addons.DEFAULT_TORRENTIO, subtitleAddons: subs.DEFAULT_SUB_ADDONS },
   }));
@@ -73,6 +79,7 @@ export function createApp(ctx) {
       type: req.params.type, id: req.params.id, langs,
       subdlKey: req.query.subdl,
       addons: [...new Set([...subs.DEFAULT_SUB_ADDONS, ...extra])],
+      release: String(req.query.release || ''),
     }));
   }));
 
@@ -140,3 +147,8 @@ if (isMain) {
   process.on('SIGINT', stop);
   process.on('SIGTERM', stop);
 }
+
+// A stray error from one torrent or peer must not take down the whole engine (on Android a
+// Node crash closes the app). Log it and keep serving.
+process.on('uncaughtException', e => console.error('[uncaught]', e?.stack || e));
+process.on('unhandledRejection', e => console.error('[unhandled]', e?.stack || e));
