@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CineMoy — Movies & series with Farsi subtitles</title>
-  <meta name="description" content="CineMoy streams movies and series on Windows, Android and Android TV, with Farsi subtitles found, matched and synced automatically. Free.">
+  <meta name="description" content="CineMoy streams movies and series on Windows, macOS, Linux, Android and Android TV, with Farsi subtitles found, matched and synced automatically. Free.">
   <meta name="theme-color" content="#0b0910">
   <meta property="og:title" content="CineMoy">
-  <meta property="og:description" content="Movies & series with Farsi subtitles — Windows, Android, Android TV.">
+  <meta property="og:description" content="Movies & series with Farsi subtitles — Windows, macOS, Linux, Android, Android TV.">
   <meta property="og:image" content="https://cinemoy.fun/icon-192.png">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -148,7 +148,8 @@
     /* install */
     .steps { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-top: 1px solid var(--line-2); }
     .steps > div { padding: 32px 40px 8px 0; }
-    .steps > div + div { padding-left: 40px; border-left: 1px solid var(--line); }
+    .steps > div:nth-child(even) { padding-left: 40px; border-left: 1px solid var(--line); }
+    .steps > div:nth-child(n+3) { padding-top: 48px; }
     .steps h3 { font-family: var(--serif); font-weight: 400; font-size: 34px; margin: 0 0 18px; }
     .steps ol { list-style: none; counter-reset: s; margin: 0; padding: 0; }
     .steps li { counter-increment: s; display: grid; grid-template-columns: 40px 1fr; padding: 13px 0; border-bottom: 1px solid var(--line); color: #d8d0de; font-size: 15px; }
@@ -185,7 +186,8 @@
       .feat:not(:nth-child(3n+1)) { padding-left: 0; border-left: 0; }
       .feat:nth-child(even) { padding-left: 28px; border-left: 1px solid var(--line); }
       .steps { grid-template-columns: 1fr; }
-      .steps > div + div { padding-left: 0; border-left: 0; }
+      .steps > div:nth-child(even) { padding-left: 0; border-left: 0; }
+      .steps > div:nth-child(n+2) { padding-top: 40px; }
       .spot .big { text-align: left; }
     }
     @media (max-width: 620px) {
@@ -219,7 +221,7 @@
           <p>Movies and series on your PC, phone and TV. Press play — CineMoy finds the stream and brings the Farsi subtitles.</p>
           <p class="fa" lang="fa">فیلم و سریال، با زیرنویس فارسی. روی کامپیوتر، گوشی و تلویزیون.</p>
           <a class="btn" id="heroBtn" href="#download">
-            <span><span id="heroLabel">Download CineMoy</span><small id="heroMeta">Free · Windows · Android</small></span>
+            <span><span id="heroLabel">Download CineMoy</span><small id="heroMeta">Free · Windows · Mac · Linux · Android</small></span>
             <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4v15M5 12l7 7 7-7"/></svg>
           </a>
           <span class="alt" id="heroAlt">or see <a href="#download">all downloads</a></span>
@@ -232,7 +234,7 @@
         <div class="sub" id="sub">قطار ساعت نه حرکت می‌کنه.</div>
         <div class="hud b"><span id="tc">01:12:44</span><span class="bar"><i id="prog"></i></span><span>02:01:09</span></div>
       </div>
-      <div class="caption"><span class="mono">Fig. 1 — Subtitles found, matched to the video and synced</span><span class="mono">Android TV · Windows · Android</span></div>
+      <div class="caption"><span class="mono">Fig. 1 — Subtitles found, matched to the video and synced</span><span class="mono">Android TV · Windows · Mac · Linux</span></div>
 
       <div class="ticker" aria-hidden="true"><div>
         <span>Farsi subtitles</span><span>4K HDR</span><span>Android TV</span><span>Dolby &amp; DTS</span><span>Subtitle sync</span><span>Continue watching</span><span>Next episode</span><span>Debrid</span>
@@ -272,6 +274,32 @@
             </a>
             <a class="row" data-asset="portable" href="https://github.com/SaeedMoy/CineMoy/releases/latest">
               <div><b>Portable</b><p>No installation — run it from any folder or USB stick</p></div>
+              <span class="size"></span><svg viewBox="0 0 24 24"><path d="M12 4v15M5 12l7 7 7-7"/></svg>
+            </a>
+          </div>
+        </div>
+        <div class="dl-group" id="gMac">
+          <div><h3>macOS</h3><span class="mono">macOS 11 or newer<br>Apple menu → About This Mac</span></div>
+          <div>
+            <a class="row" data-asset="macArm" href="https://github.com/SaeedMoy/CineMoy/releases/latest">
+              <div><b>Apple Silicon<span class="rec">Recommended</span></b><p>Macs with an M1, M2, M3 or M4 chip — most Macs since 2020</p></div>
+              <span class="size"></span><svg viewBox="0 0 24 24"><path d="M12 4v15M5 12l7 7 7-7"/></svg>
+            </a>
+            <a class="row" data-asset="macIntel" href="https://github.com/SaeedMoy/CineMoy/releases/latest">
+              <div><b>Intel</b><p>Macs with an Intel processor</p></div>
+              <span class="size"></span><svg viewBox="0 0 24 24"><path d="M12 4v15M5 12l7 7 7-7"/></svg>
+            </a>
+          </div>
+        </div>
+        <div class="dl-group" id="gLinux">
+          <div><h3>Linux</h3><span class="mono">64-bit (x86_64)</span></div>
+          <div>
+            <a class="row" data-asset="appimage" href="https://github.com/SaeedMoy/CineMoy/releases/latest">
+              <div><b>AppImage<span class="rec">Recommended</span></b><p>Any distribution — one file, no installation</p></div>
+              <span class="size"></span><svg viewBox="0 0 24 24"><path d="M12 4v15M5 12l7 7 7-7"/></svg>
+            </a>
+            <a class="row" data-asset="deb" href="https://github.com/SaeedMoy/CineMoy/releases/latest">
+              <div><b>Ubuntu / Debian</b><p>.deb package — adds CineMoy to your app menu</p></div>
               <span class="size"></span><svg viewBox="0 0 24 24"><path d="M12 4v15M5 12l7 7 7-7"/></svg>
             </a>
           </div>
@@ -336,6 +364,22 @@
             <li><span>Optional: add a free SubDL key in Settings for more Farsi subtitles.</span></li>
           </ol>
         </div>
+        <div>
+          <h3>macOS</h3>
+          <ol>
+            <li><span>Open the <b>.dmg</b> and drag CineMoy into Applications.</span></li>
+            <li><span>The app isn't signed by Apple yet. Open Terminal once and run <code>xattr -cr /Applications/CineMoy.app</code></span></li>
+            <li><span>Open CineMoy from Applications.</span></li>
+          </ol>
+        </div>
+        <div>
+          <h3>Linux</h3>
+          <ol>
+            <li><span><b>AppImage:</b> right-click → Properties → Allow executing as program, then double-click it.</span></li>
+            <li><span><b>Ubuntu / Debian:</b> run <code>sudo apt install ./cinemoy_*.deb</code> in the download folder.</span></li>
+            <li><span>Open CineMoy from your app menu.</span></li>
+          </ol>
+        </div>
       </div>
     </section>
   </div>
@@ -353,25 +397,53 @@
   <script>
     // Download links come from the latest GitHub release (fallback: the releases page).
     const REPO = 'SaeedMoy/CineMoy';
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    const isWindows = /Windows/i.test(navigator.userAgent);
+    const ua = navigator.userAgent;
+    // iPads report a Mac user agent but have touch; CineMoy has no iOS app.
+    const OS = /Android/i.test(ua) ? 'android'
+      : /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1) ? ''
+      : /Windows/i.test(ua) ? 'windows'
+      : /Macintosh|Mac OS X/i.test(ua) ? 'mac'
+      : /Linux|X11/i.test(ua) ? 'linux' : '';
+    const PLATFORM = {
+      android: { group: '#gAndroid', asset: 'arm64', name: 'Android' },
+      windows: { group: '#gWin', asset: 'setup', name: 'Windows' },
+      mac: { group: '#gMac', asset: 'macArm', name: 'Mac' },
+      linux: { group: '#gLinux', asset: 'appimage', name: 'Linux' },
+    };
     const MATCH = {
       setup: a => /setup.*\.exe$/i.test(a.name),
       portable: a => /portable.*\.exe$/i.test(a.name),
       arm64: a => /arm64-v8a.*\.apk$/i.test(a.name),
       armv7: a => /armeabi-v7a.*\.apk$/i.test(a.name),
       universal: a => /universal.*\.apk$/i.test(a.name),
+      macArm: a => /mac-arm64\.dmg$/i.test(a.name),
+      macIntel: a => /mac-x64\.dmg$/i.test(a.name),
+      appimage: a => /\.AppImage$/i.test(a.name),
+      deb: a => /\.deb$/i.test(a.name),
     };
     const mb = n => Math.round(n / 1048576) + ' MB';
     const $ = s => document.querySelector(s);
 
     // The visitor's own platform first, with its recommended file marked.
-    if (!isAndroid) $('.dl').prepend($('#gWin'));
-    $(isAndroid ? '[data-asset="arm64"]' : '[data-asset="setup"]').classList.add('recommended');
+    const mine = PLATFORM[OS];
+    if (mine) {
+      $('.dl').prepend($(mine.group));
+      $(`[data-asset="${mine.asset}"]`).classList.add('recommended');
+    }
+    // Chrome and Edge can tell an Intel Mac from Apple Silicon; Safari can't (Apple Silicon is the default).
+    const intelMac = OS === 'mac' && navigator.userAgentData?.getHighEntropyValues
+      ? navigator.userAgentData.getHighEntropyValues(['architecture']).then(v => v.architecture === 'x86').catch(() => false)
+      : Promise.resolve(false);
+    intelMac.then(intel => {
+      if (!intel) return;
+      mine.asset = 'macIntel';
+      $('[data-asset="macArm"]').classList.remove('recommended');
+      $('[data-asset="macIntel"]').classList.add('recommended');
+      $('#gMac > div:last-child').prepend($('[data-asset="macIntel"]'));
+    });
 
-    fetch(`https://api.github.com/repos/${REPO}/releases/latest`)
-      .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then(rel => {
+    Promise.all([fetch(`https://api.github.com/repos/${REPO}/releases/latest`).then(r => (r.ok ? r.json() : Promise.reject(r.status))), intelMac])
+      .then(([rel]) => {
         const version = String(rel.tag_name || '').replace(/^v/i, '');
         const found = {};
         document.querySelectorAll('[data-asset]').forEach(el => {
@@ -381,10 +453,10 @@
           el.href = a.browser_download_url;
           el.querySelector('.size').textContent = mb(a.size);
         });
-        const hero = isAndroid ? found.arm64 : isWindows ? found.setup : null;
+        const hero = mine && found[mine.asset];
         if (hero) {
           $('#heroBtn').href = hero.browser_download_url;
-          $('#heroLabel').textContent = `Download for ${isAndroid ? 'Android' : 'Windows'}`;
+          $('#heroLabel').textContent = `Download for ${mine.name}`;
           $('#heroMeta').textContent = `v${version} · ${mb(hero.size)}`;
         }
         $('#verLine').textContent = `Version ${version}, ` + new Date(rel.published_at).toLocaleDateString('en', { month: 'long', day: 'numeric', year: 'numeric' });
