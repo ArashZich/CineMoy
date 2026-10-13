@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- In-app updates: installs a newer CineMoy APK from the GitHub release. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- One APK for phones, tablets and Android TV. -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -37,5 +39,19 @@
             android:exported="false"
             android:screenOrientation="sensorLandscape"
             android:theme="@style/Theme.CineMoy.Player" />
+
+        <!-- Restarts the app in a fresh process when the engine stops. -->
+        <activity
+            android:name=".RestartActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:process=":restart"
+            android:theme="@style/Theme.CineMoy.Restart" />
+
+        <provider
+            android:name=".ApkProvider"
+            android:authorities="app.cinemoy.apk"
+            android:exported="false"
+            android:grantUriPermissions="true" />
     </application>
 </manifest>

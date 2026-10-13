@@ -13,7 +13,7 @@ const store = {
   get(k, d) { try { return JSON.parse(localStorage.getItem('pp.' + k)) ?? d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem('pp.' + k, JSON.stringify(v)); } catch { /* private mode */ } },
 };
-const DEFAULTS = { apiBase: '', torrentio: '', subdlKey: '', subLangs: 'fa,en', subAddons: '', subSize: 34, autoSub: true };
+const DEFAULTS = { apiBase: '', torrentio: '', subdlKey: '', subLangs: 'fa,en', subAddons: '', subSize: 34, autoSub: true, quality: '1080p' };
 let settings = { ...DEFAULTS, ...store.get('settings', {}) };
 let serverConfig = { ffmpeg: false, defaults: {} };
 
@@ -218,6 +218,46 @@ async function search(q) {
 const FARSI_AUDIO = /🇮🇷|farsi|persian|dubbed[ ._-]?fa|دوبله/i;
 const HARD_CODEC = /x265|hevc|h\.?265|10[ .-]?bit|\bdts\b|truehd|atmos|\bac-?3\b|\bddp?\s?5|\beac3\b/i;
 
+const FOREIGN_DUB = /[Ѐ-ӿ]|\b(dub|mvo|avo|rus|ukr|ita|esp|spa|lat|latino|castellano|french|vff|truefrench|hindi|tamil|telugu|multi|dual)\b/i;
+const qOf = s => (/4k|2160/i.test(s.quality + s.name) ? '4K' : /1080/.test(s.quality + s.name) ? '1080p' : /720/.test(s.quality + s.name) ? '720p' : 'SD');
+const sizeGB = s => {
+  const m = /([\d.]+)\s*([KMGT])B/i.exec(s.size || '');
+  return m ? Number(m[1]) * { K: 1e-6, M: 1e-3, G: 1, T: 1000 }[m[2].toUpperCase()] : 0;
+};
+const isHardCodec = s => HARD_CODEC.test(`${s.release} ${s.filename || ''} ${s.quality}`);
+// The Android player and ffmpeg compatibility mode decode everything; plain browsers don't.
+const canPlayHardCodecs = () => !!window.CineMoyAndroid || serverConfig.ffmpeg;
+const QUALITY_ORDER = {
+  '1080p': ['1080p', '720p', '4K', 'SD'],
+  '4K': ['4K', '1080p', '720p', 'SD'],
+  '720p': ['720p', '1080p', 'SD', '4K'],
+};
+
+// The source the "Play" button uses: preferred quality, well seeded, playable on this device,
+// not needlessly huge. `same` (last used source) and `bingeGroup` (same release as the previous
+// episode) win when present.
+function pickBest(list, { same, bingeGroup } = {}) {
+  if (!list.length) return null;
+  const again = same && list.find(s => (same.infoHash ? s.infoHash === same.infoHash && (s.fileIdx ?? null) === (same.fileIdx ?? null) : same.url && s.url === same.url));
+  if (again) return again;
+  const order = QUALITY_ORDER[settings.quality] || QUALITY_ORDER['1080p'];
+  const score = s => {
+    let x = order.indexOf(qOf(s)) * 100;
+    if (s.infoHash) x += s.seeders < 3 ? 400 : -Math.min(60, Math.log2(s.seeders + 1) * 10);
+    else x -= 60; // debrid link: instant
+    if (isHardCodec(s) && !canPlayHardCodecs()) x += 300;
+    if (FARSI_AUDIO.test(s.release + s.filename)) x -= 20;
+    else if (FOREIGN_DUB.test(s.release)) x += 120; // likely starts with Russian/Italian/… audio
+    if (/remux/i.test(s.release)) x += 40;
+    const gb = sizeGB(s);
+    if (gb > 20) x += 30;
+    if (gb > 40) x += 40;
+    if (bingeGroup && s.bingeGroup === bingeGroup) x -= 150;
+    return x;
+  };
+  return list.map(s => [score(s), s]).reduce((a, b) => (b[0] < a[0] ? b : a))[1];
+}
+
 async function detail(type, id, videoId) {
   setTab(type);
   view.innerHTML = `<div class="detail"><section class="hero detail-hero"><div class="hero-info in"><div class="skeleton" style="height:3.5rem;width:22rem;max-width:80%"></div></div></section></div>`;
@@ -234,6 +274,7 @@ async function detail(type, id, videoId) {
         <div class="meta-line">${metaLine(meta)}</div>
         <p class="hero-desc full">${esc(meta.description || '')}</p>
         ${meta.cast.length ? `<p class="cast">${esc(meta.cast.slice(0, 5).join(', '))}</p>` : ''}
+        <div class="hero-actions" id="heroActions"></div>
       </div>
     </section>
     <div class="detail-body ${type === 'series' ? 'split' : ''}">
@@ -274,34 +315,47 @@ let sourcesToken = 0;
 async function loadSources(meta, video) {
   const token = ++sourcesToken;
   const box = $('#sources');
+  const actions = $('#heroActions');
+  const videoId = video ? video.id : meta.id;
+  const epLabel = video ? ` S${video.season} E${video.episode}` : '';
   $('#srcTitle').textContent = video ? `Sources · S${video.season} E${video.episode}` : 'Sources';
   $('#qChips').innerHTML = '';
   box.innerHTML = Array.from({ length: 5 }, () => '<div class="skeleton" style="height:4.2rem"></div>').join('');
+  actions.innerHTML = `<button class="pill primary play-btn" disabled>Finding the best source…</button>`;
   let list;
   try {
-    list = await getJSON(`/api/streams/${meta.type}/${encodeURIComponent(video ? video.id : meta.id)}?addon=${encodeURIComponent(settings.torrentio)}`);
+    list = await getJSON(`/api/streams/${meta.type}/${encodeURIComponent(videoId)}?addon=${encodeURIComponent(settings.torrentio)}`);
   } catch (e) {
-    if (token === sourcesToken) box.innerHTML = `<div class="error">Torrentio error: ${esc(e.message)}</div>`;
+    if (token === sourcesToken) { box.innerHTML = `<div class="error">Torrentio error: ${esc(e.message)}</div>`; actions.innerHTML = ''; }
     return;
   }
   if (token !== sourcesToken) return;
-  if (!list.length) { box.innerHTML = '<div class="empty">No sources found for this title.</div>'; return; }
+  if (!list.length) { box.innerHTML = '<div class="empty">No sources found for this title.</div>'; actions.innerHTML = ''; return; }
 
-  const qOf = s => (/4k|2160/i.test(s.quality + s.name) ? '4K' : /1080/.test(s.quality + s.name) ? '1080p' : /720/.test(s.quality + s.name) ? '720p' : 'SD');
+  // One-click play: resume with the same source if there is saved progress for this video.
+  const saved = progress.get(meta.id);
+  const resume = saved?.videoId === videoId && saved.pos > 30 ? saved : null;
+  const best = pickBest(list, { same: resume?.src });
+  const facts = [qOf(best), best.size, best.infoHash ? `👤 ${best.seeders}` : '⚡ Debrid'].filter(Boolean).map(esc).join(' · ');
+  actions.innerHTML = `<button class="pill primary play-btn focusable" id="playBest">▶ ${resume ? `Resume${epLabel} · ${fmtTime(resume.pos)}` : `Play${epLabel}`}</button>
+    <span class="play-src">${facts}</span>`;
+  $('#playBest').onclick = () => player.open({ meta, video, stream: best });
+  // On a TV nothing is focused after navigation: start on the Play button.
+  if (!view.contains(document.activeElement) || document.activeElement === document.body) $('#playBest').focus();
+
   const qualities = ['All', ...['4K', '1080p', '720p', 'SD'].filter(q => list.some(s => qOf(s) === q))];
   let filter = 'All';
   const render = () => {
     const shown = list.filter(s => filter === 'All' || qOf(s) === filter);
     box.innerHTML = shown.map((s, i) => {
       const q = qOf(s);
-      const hard = HARD_CODEC.test(s.release + ' ' + (s.filename || '') + ' ' + s.quality);
       return `<button class="src focusable" data-i="${list.indexOf(s)}">
         <div class="q ${q === '4K' ? 'k4' : q === '1080p' ? 'p1080' : ''}">${q}</div>
         <div><div class="rel">${esc(s.release)}</div>
-          <div class="facts">${s.size ? `<span>💾 ${esc(s.size)}</span>` : ''}${s.infoHash ? `<span class="seed">👤 ${s.seeders}</span>` : '<span class="seed">⚡ Debrid</span>'}
+          <div class="facts">${s === best ? '<span class="badge best">★ Best pick</span>' : ''}${s.size ? `<span>💾 ${esc(s.size)}</span>` : ''}${s.infoHash ? `<span class="seed">👤 ${s.seeders}</span>` : '<span class="seed">⚡ Debrid</span>'}
             ${s.source ? `<span>${esc(s.source)}</span>` : ''}
             ${FARSI_AUDIO.test(s.release + s.filename) ? '<span class="badge fa">Farsi audio</span>' : ''}
-            ${hard && !serverConfig.ffmpeg ? '<span class="badge" title="Browsers usually cannot decode this codec. Install ffmpeg on the server.">may not play</span>' : ''}
+            ${isHardCodec(s) && !canPlayHardCodecs() ? '<span class="badge" title="Browsers usually cannot decode this codec. Install ffmpeg on the server.">may not play</span>' : ''}
           </div></div>
         <div class="muted">▶</div>
       </button>`;
@@ -462,11 +516,20 @@ const player = (() => {
   }
 
   // -------- subtitles
+  // Sorted by the server: language, then how closely the subtitle's release matches this file.
+  function searchSubtitles() {
+    const p = new URLSearchParams({
+      langs: settings.subLangs || 'fa', subdl: settings.subdlKey || '', addons: settings.subAddons || '',
+      release: st.stream.filename || st.stream.release || '',
+    });
+    return getJSON(`/api/subtitles/${st.meta.type}/${encodeURIComponent(st.videoId)}?${p}`);
+  }
+  const MATCH = 6; // same release group + similar name (see matchScore on the server)
+
   async function loadSubtitleList() {
     const session = st;
-    const p = new URLSearchParams({ langs: settings.subLangs || 'fa', subdl: settings.subdlKey || '', addons: settings.subAddons || '' });
     try {
-      const res = await getJSON(`/api/subtitles/${st.meta.type}/${encodeURIComponent(st.videoId)}?${p}`);
+      const res = await searchSubtitles();
       if (st !== session) return;
       st.subs = res.subtitles;
       st.subErrors = res.errors;
@@ -558,7 +621,7 @@ const player = (() => {
       ${st.subRef === 'local' ? '<button class="opt focusable active" data-ref="local"><div class="t">Local file</div></button>' : ''}
       ${list == null ? '<div class="empty"><div class="spinner" style="margin:auto"></div>Searching subtitles…</div>'
         : list.length ? list.map(s => `<button class="opt focusable ${s.ref === st.subRef ? 'active' : ''}" data-ref="${s.ref}">
-            <div class="t" dir="auto">${esc(s.label)}</div><div class="p">${esc(LANG[s.lang] || s.lang)} · ${esc(s.provider)}${s.downloads ? ' · ⬇ ' + s.downloads : ''}${s.author ? ' · ' + esc(s.author) : ''}</div></button>`).join('')
+            <div class="t" dir="auto">${esc(s.label)}</div><div class="p">${s.match >= MATCH ? '<b class="match">✓ Matches this video</b> · ' : ''}${esc(LANG[s.lang] || s.lang)} · ${esc(s.provider)}${s.downloads ? ' · ⬇ ' + s.downloads : ''}${s.author ? ' · ' + esc(s.author) : ''}</div></button>`).join('')
         : '<div class="empty">No subtitles found.</div>'}
       ${st.subErrors?.length ? `<p class="muted" style="font-size:.75rem">${st.subErrors.map(esc).join('<br>')}</p>` : ''}
       ${!settings.subdlKey ? '<p class="muted" style="font-size:.8rem">Tip: add a free SubDL API key in Settings for many more Farsi subtitles.</p>' : ''}
@@ -613,11 +676,13 @@ const player = (() => {
   // -------- progress / next episode
   function saveProgress(pos = now(), dur = total()) {
     if (!st || !dur || pos < 5) return;
-    const { meta, ep } = st;
+    const { meta, ep, stream } = st;
     progress.save({
       id: meta.id, type: meta.type, name: meta.name, poster: meta.poster, background: meta.background, logo: meta.logo,
       year: meta.year, rating: meta.rating, runtime: meta.runtime, genres: meta.genres.slice(0, 3), description: (meta.description || '').slice(0, 400),
       videoId: st.videoId, season: ep?.season, episode: ep?.episode, pos, dur,
+      // Resume uses the same source (same file, so the position and the subtitle sync still fit).
+      src: stream.infoHash ? { infoHash: stream.infoHash, fileIdx: stream.fileIdx ?? null } : { url: stream.url },
     });
   }
 
@@ -629,15 +694,15 @@ const player = (() => {
     toast('Opening player…');
     let list = [];
     try {
-      const p = new URLSearchParams({ langs: settings.subLangs || 'fa', subdl: settings.subdlKey || '', addons: settings.subAddons || '' });
       const res = await Promise.race([
-        getJSON(`/api/subtitles/${st.meta.type}/${encodeURIComponent(st.videoId)}?${p}`),
+        searchSubtitles(),
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000)),
       ]);
-      list = res.subtitles.slice(0, 20);
+      list = res.subtitles.slice(0, 25);
     } catch { /* play without subtitles */ }
     if (st !== session) return;
     const { meta, ep, stream } = st;
+    // The native player draws these subtitles itself (so it can shift them for sync).
     window.CineMoyAndroid.play(JSON.stringify({
       url: abs(st.directUrl),
       title: meta.name,
@@ -645,7 +710,11 @@ const player = (() => {
       startMs: Math.round((resumeAt || 0) * 1000),
       statusUrl: stream.infoHash ? abs(api(`/api/status/${stream.infoHash}`)) : '',
       preferredSubLang: settings.autoSub ? 'fa' : '',
-      subtitles: list.map(s => ({ url: abs(api(`/api/subtitle/${s.ref}/vtt`)), label: `${s.provider} · ${s.label}`.slice(0, 90), lang: s.lang })),
+      subtitles: list.map(s => ({
+        cuesUrl: abs(api(`/api/subtitle/${s.ref}`)),
+        label: `${s.match >= MATCH ? '✓ ' : ''}${s.provider} · ${s.label}`.slice(0, 90),
+        lang: s.lang,
+      })),
     }));
   }
   // Called by the Android player when it closes.
@@ -669,7 +738,7 @@ const player = (() => {
     showLoading(`Finding S${next.season}E${next.episode}…`);
     try {
       const list = await getJSON(`/api/streams/series/${encodeURIComponent(next.id)}?addon=${encodeURIComponent(settings.torrentio)}`);
-      const pick = list.find(s => stream.bingeGroup && s.bingeGroup === stream.bingeGroup) || list[0];
+      const pick = pickBest(list, { bingeGroup: stream.bingeGroup });
       if (!pick) throw new Error('No sources for next episode');
       open({ meta, video: next, stream: pick, resumeAt: 0 });
     } catch (e) {
@@ -763,11 +832,17 @@ const player = (() => {
 })();
 
 // ---------------------------------------------------------------- settings
-function openSettings() {
+async function openSettings() {
   const d = $('#settings');
   const langOpts = [['fa', 'Farsi only'], ['fa,en', 'Farsi + English'], ['en', 'English only'], ['fa,en,ar,tr', 'Farsi, English, Arabic, Turkish']];
+  const qualityOpts = [['1080p', '1080p (recommended)'], ['4K', '4K when available'], ['720p', '720p (slow connections)']];
+  const desktop = window.CineMoyDesktop ? await window.CineMoyDesktop.info().catch(() => null) : null;
   d.innerHTML = `
     <h2 style="margin-top:0">Settings</h2>
+    <label for="sQuality">Quality for the Play button</label>
+    <select id="sQuality" class="focusable">${qualityOpts.map(([v, l]) => `<option value="${v}" ${v === settings.quality ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    <div class="hint">Play picks a well-seeded source in this quality that plays on this device. You can still choose any source from the list.</div>
+
     <label for="sTorrentio">Torrentio addon URL</label>
     <input id="sTorrentio" class="focusable" placeholder="${esc(serverConfig.defaults.torrentio || 'https://torrentio.strem.fun')}" value="${esc(settings.torrentio)}">
     <div class="hint">Leave empty for the default. To filter qualities or use Real-Debrid / AllDebrid / Premiumize, open
@@ -786,18 +861,28 @@ function openSettings() {
     <input id="sAddons" class="focusable" value="${esc(settings.subAddons)}" placeholder="https://example-addon/manifest.json, …">
     <div class="hint">Comma-separated. Any Stremio subtitles addon works here.</div>
 
+    ${desktop ? `
+    <label style="display:flex;gap:.6rem;align-items:center"><input type="checkbox" id="sLan" class="focusable" style="width:auto" ${desktop.lanSharing ? 'checked' : ''}> Share with TVs and phones on my network</label>
+    <div class="hint">Lets devices on your Wi-Fi use this PC to stream. Off by default, so nobody else on your network can use it. Changing this restarts CineMoy.
+      ${desktop.lanSharing && desktop.addresses.length ? `<br>Open on your TV: <b>${desktop.addresses.map(esc).join('</b> or <b>')}</b>` : ''}</div>` : ''}
+
     <label for="sApi">Server address (advanced)</label>
     <input id="sApi" class="focusable" value="${esc(settings.apiBase)}" placeholder="Same as this page">
     <div class="hint">Only needed when this UI is installed as a separate TV app. Example: http://192.168.1.20:7070.
       Server ffmpeg: <b>${serverConfig.ffmpeg ? 'found ✓' : 'not installed'}</b>.</div>
 
+    <div class="about">CineMoy ${esc(serverConfig.version || '')}
+      ${updatePlatform() ? '<button class="pill focusable" id="sUpdate">Check for updates</button>' : ''}</div>
+
     <div class="actions"><button class="pill focusable" id="sCancel">Cancel</button><button class="pill primary focusable" id="sSave">Save</button></div>`;
   d.showModal();
-  $('#sTorrentio').focus();
+  $('#sQuality').focus();
   $('#sCancel').onclick = () => d.close();
+  if ($('#sUpdate')) $('#sUpdate').onclick = () => { d.close(); checkForUpdate(true); };
   $('#sSave').onclick = async () => {
     settings = {
       ...settings,
+      quality: $('#sQuality').value,
       torrentio: $('#sTorrentio').value.trim(),
       subdlKey: $('#sSubdl').value.trim(),
       subLangs: $('#sLangs').value,
@@ -807,21 +892,99 @@ function openSettings() {
     };
     store.set('settings', settings);
     d.close();
+    if (desktop && $('#sLan').checked !== desktop.lanSharing) {
+      toast('Restarting CineMoy…');
+      return window.CineMoyDesktop.setLanSharing($('#sLan').checked);
+    }
     await loadServerConfig();
     toast('Settings saved');
     router();
   };
 }
+
+// ---------------------------------------------------------------- updates (Windows + Android apps)
+// New versions are published as GitHub releases; the app offers the right file for this device.
+const REPO = 'SaeedMoy/CineMoy';
+const updatePlatform = () => (window.CineMoyAndroid ? 'android' : window.CineMoyDesktop ? 'windows' : '');
+const isNewer = (a, b) => {
+  const pa = a.split('.').map(Number), pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+  return false;
+};
+
+async function checkForUpdate(manual = false) {
+  const platform = updatePlatform();
+  if (!platform || !serverConfig.version) return;
+  if (!manual && Date.now() - store.get('updateChecked', 0) < 12 * 3600 * 1000) return;
+  store.set('updateChecked', Date.now());
+  try {
+    const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } });
+    if (!r.ok) throw new Error(r.status === 404 ? 'no release published yet' : `HTTP ${r.status}`);
+    const rel = await r.json();
+    const latest = String(rel.tag_name || '').replace(/^v/i, '');
+    if (!isNewer(latest, serverConfig.version)) { if (manual) toast(`You have the latest version (${serverConfig.version}).`); return; }
+    if (!manual && store.get('updateSkipped') === latest) return;
+    const asset = await pickAsset(platform, rel.assets || []);
+    showUpdate(rel, latest, asset);
+  } catch (e) {
+    if (manual) toast('Could not check for updates: ' + e.message);
+  }
+}
+
+async function pickAsset(platform, assets) {
+  const find = re => assets.find(a => re.test(a.name));
+  if (platform === 'android') {
+    const abi = window.CineMoyAndroid.abi?.() || '';
+    return (abi && assets.find(a => a.name.endsWith('.apk') && a.name.includes(abi))) || find(/universal.*\.apk$/i) || find(/\.apk$/i);
+  }
+  const info = await window.CineMoyDesktop.info().catch(() => ({}));
+  return (info.portable ? find(/portable.*\.exe$/i) : find(/setup.*\.exe$/i)) || find(/\.exe$/i);
+}
+
+function showUpdate(rel, latest, asset) {
+  const d = $('#update');
+  const android = updatePlatform() === 'android';
+  d.innerHTML = `
+    <h2 style="margin-top:0">CineMoy ${esc(latest)} is available</h2>
+    <p class="muted">You have version ${esc(serverConfig.version)}.</p>
+    ${rel.body ? `<div class="notes">${esc(rel.body.slice(0, 4000))}</div>` : ''}
+    <div class="actions">
+      <button class="pill focusable" id="uSkip">Skip this version</button>
+      <button class="pill focusable" id="uLater">Later</button>
+      <button class="pill primary focusable" id="uGo">${asset ? (android ? 'Download & install' : 'Download') : 'Open release page'}</button>
+    </div>`;
+  d.showModal();
+  $('#uGo').focus();
+  $('#uLater').onclick = () => d.close();
+  $('#uSkip').onclick = () => { store.set('updateSkipped', latest); d.close(); };
+  $('#uGo').onclick = () => {
+    if (!asset) { window.open(rel.html_url, '_blank'); return d.close(); }
+    if (!android) {
+      window.open(asset.browser_download_url, '_blank'); // opens in the default browser
+      toast('Downloading in your browser. Run the file to update CineMoy.', 8000);
+      return d.close();
+    }
+    const btn = $('#uGo');
+    btn.disabled = true;
+    btn.textContent = 'Downloading…';
+    window.__cmUpdateProgress = pct => { btn.textContent = `Downloading… ${pct}%`; };
+    window.__cmUpdateDone = () => d.close(); // Android's installer takes over
+    window.__cmUpdateError = msg => { btn.disabled = false; btn.textContent = 'Try again'; toast('Update failed: ' + msg, 6000); };
+    window.CineMoyAndroid.installUpdate(asset.browser_download_url);
+  };
+}
 $('#settingsBtn').onclick = openSettings;
 
 // ---------------------------------------------------------------- spatial navigation (TV remotes)
+const openDialog = () => document.querySelector('dialog[open]');
 const FOCUSABLE = '.focusable, button, input, select, a[href]';
 function candidates(scope) {
   return [...scope.querySelectorAll(FOCUSABLE)].filter(el => !el.disabled && el.getClientRects().length && !el.closest('[hidden]') && getComputedStyle(el).visibility !== 'hidden');
 }
 function moveFocus(dir) {
   let scope = document;
-  if ($('#settings').open) scope = $('#settings');
+  const dialog = openDialog();
+  if (dialog) scope = dialog;
   else if (player.isOpen()) scope = player.panel.hidden ? player.root : player.panel;
   const list = candidates(scope);
   const cur = document.activeElement;
@@ -866,9 +1029,9 @@ const isTyping = () => {
 document.addEventListener('keydown', e => {
   const k = e.key, code = e.keyCode;
   const isBack = k === 'Escape' || k === 'GoBack' || k === 'BrowserBack' || code === 461 || code === 10009 || (k === 'Backspace' && !isTyping());
-  if (player.isOpen() && !$('#settings').open && player.handleKey(e, isBack)) { e.preventDefault(); return; }
+  if (player.isOpen() && !openDialog() && player.handleKey(e, isBack)) { e.preventDefault(); return; }
   if (isBack) {
-    if ($('#settings').open) return; // native dialog handles Escape
+    if (openDialog()) return; // native dialog handles Escape
     if (isTyping()) { document.activeElement.blur(); e.preventDefault(); return; }
     if (location.hash && location.hash !== '#/') { e.preventDefault(); history.back(); }
     return;
@@ -887,7 +1050,7 @@ document.addEventListener('keydown', e => {
 
 // Android's Back button calls this; returning false lets the app exit from the home screen.
 window.__cmBack = () => {
-  if ($('#settings').open) { $('#settings').close(); return true; }
+  if (openDialog()) { openDialog().close(); return true; }
   if (player.isOpen() && !player.root.hidden) { player.close(); return true; }
   if (isTyping()) { document.activeElement.blur(); return true; }
   if (location.hash && location.hash !== '#/') { history.back(); return true; }
@@ -923,3 +1086,4 @@ async function loadServerConfig() {
 
 await loadServerConfig();
 router();
+setTimeout(checkForUpdate, 4000);

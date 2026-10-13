@@ -8,8 +8,9 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const android = path.join(root, 'android');
+// Only .bat files need a shell on Windows (and node's own path may contain spaces).
 const run = (cmd, args, opts = {}) => {
-  const r = spawnSync(cmd, args, { stdio: 'inherit', shell: process.platform === 'win32', ...opts });
+  const r = spawnSync(cmd, args, { stdio: 'inherit', shell: process.platform === 'win32' && cmd.endsWith('.bat'), ...opts });
   if (r.status !== 0) process.exit(r.status ?? 1);
 };
 
@@ -28,6 +29,7 @@ if (!env.ANDROID_HOME && !fs.existsSync(path.join(android, 'local.properties')))
   if (sdk) fs.writeFileSync(path.join(android, 'local.properties'), `sdk.dir=${sdk.replace(/\\/g, '/')}\n`);
 }
 
-const gradlew = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
+// Absolute path: cmd.exe may be set to not run programs from the current folder.
+const gradlew = path.join(android, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew');
 run(gradlew, ['assembleRelease', '--console=plain'], { cwd: android, env });
 console.log('\nAPKs: android/app/build/outputs/apk/release/');

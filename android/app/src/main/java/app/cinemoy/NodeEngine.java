@@ -32,6 +32,8 @@ public final class NodeEngine {
     private static native int startNode(String[] arguments);
 
     private static boolean started;
+    /** Called (on the node thread) if the engine stops; it can only come back with a new process. */
+    public static volatile Runnable onExit;
 
     private NodeEngine() {}
 
@@ -55,6 +57,8 @@ public final class NodeEngine {
             } catch (Exception e) {
                 Log.e(TAG, "Engine failed to start", e);
             }
+            Runnable r = onExit;
+            if (r != null) r.run();
         };
         // V8 needs a large native stack.
         new Thread(null, run, "node", 16L * 1024 * 1024).start();

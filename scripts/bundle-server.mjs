@@ -49,7 +49,8 @@ await build({
   logLevel: 'warning',
 });
 fs.cpSync(path.join(root, 'web'), path.join(out, 'web'), { recursive: true });
-fs.writeFileSync(path.join(out, 'package.json'), JSON.stringify({ name: 'cinemoy-engine', type: 'module', main: 'server/index.mjs' }, null, 2));
+const { version } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+fs.writeFileSync(path.join(out, 'package.json'), JSON.stringify({ name: 'cinemoy-engine', version, type: 'module', main: 'server/index.mjs' }, null, 2));
 const size = fs.statSync(path.join(out, 'server', 'index.mjs')).size;
 console.log(`dist-node ready (server bundle ${(size / 1024).toFixed(0)} KB)`);
 
