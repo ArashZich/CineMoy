@@ -4,290 +4,357 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CineMoy — Movies & series with Farsi subtitles</title>
-  <meta name="description" content="CineMoy streams movies and series on Windows, Android and Android TV, with Farsi subtitles found and turned on automatically. Free download.">
-  <meta name="theme-color" content="#110c1b">
+  <meta name="description" content="CineMoy streams movies and series on Windows, Android and Android TV, with Farsi subtitles found, matched and synced automatically. Free.">
+  <meta name="theme-color" content="#0b0910">
   <meta property="og:title" content="CineMoy">
-  <meta property="og:description" content="Movies & series with Farsi subtitles — for Windows, Android and Android TV.">
+  <meta property="og:description" content="Movies & series with Farsi subtitles — Windows, Android, Android TV.">
   <meta property="og:image" content="https://cinemoy.fun/icon-192.png">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Vazirmatn:wght@400;500;700&display=swap">
   <style>
     :root {
-      --bg: #110c1b; --bg-2: #1a1328; --bg-3: #2a2040; --text: #f3eefa; --muted: #a99fbd;
-      --violet: #2a1745; --violet-2: #4a2a78; --coral: #ff6f61; --gold: #e0b75a; --good: #3ecf8e;
-      --brand: linear-gradient(135deg, #7b3fc4 0%, #ff6f61 100%);
-      --radius: 18px; --pad: clamp(16px, 5vw, 64px);
+      --ink: #0b0910;
+      --ink-2: #131019;
+      --line: rgba(240, 232, 222, .12);
+      --line-2: rgba(240, 232, 222, .22);
+      --paper: #f0e8de;
+      --dim: #9a91a6;
+      --coral: #ff6f61;
+      --gold: #d9b26a;
+      --serif: "Instrument Serif", Georgia, serif;
+      --sans: "Inter Tight", system-ui, sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, monospace;
+      --fa: Vazirmatn, Tahoma, sans-serif;
+      --gutter: clamp(20px, 4.5vw, 72px);
     }
     * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 Vazirmatn, system-ui, sans-serif; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+    body { margin: 0; background: var(--ink); color: var(--paper); font: 400 16px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
     a { color: inherit; text-decoration: none; }
-    img { display: block; max-width: 100%; }
-    .wrap { max-width: 1160px; margin: 0 auto; padding: 0 var(--pad); }
+    ::selection { background: var(--coral); color: var(--ink); }
 
-    /* header */
-    header { position: sticky; top: 0; z-index: 10; background: rgba(17,12,27,.82); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,.05); }
-    header .wrap { display: flex; align-items: center; gap: 1.5rem; height: 68px; }
-    .brand { display: flex; align-items: center; gap: .6rem; font-size: 1.4rem; font-weight: 400; }
-    .brand img { width: 36px; height: 36px; }
-    .brand b { color: var(--coral); font-weight: 800; }
-    nav { margin-left: auto; display: flex; gap: 1.4rem; color: var(--muted); font-weight: 600; font-size: .95rem; }
-    nav a:hover { color: var(--text); }
-
-    /* buttons */
-    .btn { display: inline-flex; align-items: center; gap: .6rem; padding: .85rem 1.5rem; border-radius: 999px; font-weight: 700; cursor: pointer; border: 0; transition: transform .15s, box-shadow .15s, background .15s; }
-    .btn.primary { background: var(--brand); color: #fff; box-shadow: 0 10px 30px rgba(255,111,97,.28); }
-    .btn.primary:hover { transform: translateY(-2px); box-shadow: 0 14px 36px rgba(255,111,97,.38); }
-    .btn.ghost { background: var(--bg-3); color: var(--text); }
-    .btn.ghost:hover { background: #3a2b52; }
-    .btn svg { width: 20px; height: 20px; fill: currentColor; flex: none; }
-    .btn small { font-weight: 400; opacity: .8; }
-
-    /* hero */
-    .hero { position: relative; overflow: hidden; padding: clamp(48px, 9vw, 110px) 0 clamp(56px, 8vw, 96px); }
-    .hero::before { content: ""; position: absolute; inset: -30% -10% auto 40%; height: 120%; background: radial-gradient(closest-side, rgba(123,63,196,.45), transparent 70%); pointer-events: none; }
-    .hero::after { content: ""; position: absolute; inset: 30% 50% auto -20%; height: 80%; background: radial-gradient(closest-side, rgba(255,111,97,.18), transparent 70%); pointer-events: none; }
-    .hero .wrap { position: relative; display: grid; grid-template-columns: 1.05fr 1fr; gap: 3rem; align-items: center; }
-    .tag { display: inline-block; padding: .3rem .8rem; border-radius: 999px; background: rgba(224,183,90,.12); color: var(--gold); font-size: .85rem; font-weight: 600; margin-bottom: 1.2rem; }
-    h1 { font-size: clamp(2.2rem, 5.2vw, 3.9rem); line-height: 1.08; margin: 0 0 1.1rem; font-weight: 800; letter-spacing: -.5px; }
-    h1 span { background: var(--brand); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .lead { color: #d2cadf; font-size: 1.15rem; margin: 0 0 .6rem; max-width: 34rem; }
-    .fa-line { color: var(--muted); font-size: 1.05rem; margin: 0 0 2rem; }
-    .cta { display: flex; flex-wrap: wrap; gap: .8rem; align-items: center; }
-    .ver { color: var(--muted); font-size: .85rem; margin-top: 1rem; }
-
-    /* TV mockup (pure CSS — no movie artwork) */
-    .tv { position: relative; aspect-ratio: 16 / 9.4; border-radius: 22px; padding: 12px; background: #07050c; box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06); }
-    .screen { position: relative; width: 100%; height: 100%; border-radius: 12px; overflow: hidden; background: linear-gradient(160deg, #2a1745 0%, #110c1b 55%, #3a1530 100%); }
-    .screen .glow { position: absolute; width: 70%; height: 90%; right: -10%; top: -10%; background: radial-gradient(closest-side, rgba(255,111,97,.55), transparent 70%); filter: blur(10px); }
-    .screen .bar { position: absolute; top: 6%; left: 5%; display: flex; align-items: center; gap: 4%; width: 90%; }
-    .screen .bar img { width: 7%; }
-    .screen .bar i { display: block; height: 6px; width: 10%; border-radius: 3px; background: rgba(255,255,255,.25); }
-    .screen .bar i:first-of-type { background: rgba(255,255,255,.7); }
-    .screen .title { position: absolute; left: 5%; top: 24%; width: 42%; }
-    .screen .title b { display: block; height: 14px; border-radius: 4px; background: rgba(255,255,255,.85); margin-bottom: 10px; width: 80%; }
-    .screen .title i { display: block; height: 7px; border-radius: 3px; background: rgba(255,255,255,.3); margin-bottom: 7px; }
-    .screen .title .play { width: 34%; height: 22px; margin-top: 14px; border-radius: 999px; background: var(--brand); }
-    .screen .row { position: absolute; left: 5%; bottom: 8%; display: flex; gap: 2.5%; width: 120%; }
-    .screen .row div { flex: none; width: 20%; aspect-ratio: 16/9; border-radius: 8px; background: linear-gradient(135deg, var(--violet-2), #6b2f5a); opacity: .85; }
-    .screen .row div:first-child { box-shadow: 0 0 0 3px #fff; background: linear-gradient(135deg, #ff8a5c, #7b3fc4); opacity: 1; }
-    .sub { position: absolute; left: 50%; bottom: -26px; transform: translateX(-50%); white-space: nowrap; padding: .5rem 1.1rem; border-radius: 12px; background: rgba(0,0,0,.78); font-size: clamp(.95rem, 1.8vw, 1.25rem); font-weight: 600; direction: rtl; box-shadow: 0 10px 30px rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.08); }
-
-    /* sections */
-    section { padding: clamp(56px, 8vw, 96px) 0; }
-    h2 { font-size: clamp(1.7rem, 3.4vw, 2.4rem); margin: 0 0 .6rem; font-weight: 800; }
-    .sec-lead { color: var(--muted); margin: 0 0 2.5rem; max-width: 40rem; }
-
-    /* downloads */
-    #download { background: linear-gradient(180deg, transparent, rgba(42,23,69,.35) 30%, transparent); }
-    .platforms { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.4rem; }
-    .platform { background: var(--bg-2); border: 1px solid rgba(255,255,255,.06); border-radius: var(--radius); padding: 1.8rem; transition: border-color .2s; }
-    .platform.recommended { border-color: rgba(255,111,97,.6); box-shadow: 0 0 0 1px rgba(255,111,97,.25), 0 20px 50px rgba(0,0,0,.35); }
-    .platform header { position: static; background: none; backdrop-filter: none; border: 0; display: flex; align-items: center; gap: .9rem; margin-bottom: .4rem; }
-    .platform header svg { width: 34px; height: 34px; fill: var(--text); }
-    .platform h3 { margin: 0; font-size: 1.35rem; }
-    .platform .req { color: var(--muted); font-size: .9rem; margin: 0 0 1.4rem; }
-    .badge { margin-left: auto; font-size: .75rem; font-weight: 700; padding: .2rem .65rem; border-radius: 999px; background: rgba(255,111,97,.15); color: var(--coral); display: none; }
-    .recommended .badge { display: inline-block; }
-    .files { display: grid; gap: .7rem; }
-    .file { display: flex; align-items: center; gap: 1rem; padding: .9rem 1.1rem; border-radius: 14px; background: var(--bg); border: 1px solid transparent; transition: border-color .15s, transform .15s; }
-    .file:hover { border-color: rgba(255,111,97,.5); transform: translateY(-1px); }
-    .file .ic { flex: none; width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--bg-3); }
-    .file.main .ic { background: var(--brand); }
-    .file .ic svg { width: 20px; height: 20px; fill: #fff; }
-    .file div { flex: 1; min-width: 0; }
-    .file b { display: block; font-size: 1rem; }
-    .file span { display: block; color: var(--muted); font-size: .85rem; }
-    .file em { font-style: normal; color: var(--muted); font-size: .85rem; white-space: nowrap; }
-    .note { margin-top: 1.4rem; color: var(--muted); font-size: .88rem; }
-    .note a { color: var(--coral); }
-
-    /* features */
-    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; }
-    .feature { background: var(--bg-2); border-radius: var(--radius); padding: 1.6rem; border: 1px solid rgba(255,255,255,.05); }
-    .feature .fi { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; background: rgba(123,63,196,.25); margin-bottom: 1rem; font-size: 1.4rem; }
-    .feature h3 { margin: 0 0 .4rem; font-size: 1.1rem; }
-    .feature p { margin: 0; color: var(--muted); font-size: .95rem; }
-
-    /* install steps */
-    .steps { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.4rem; }
-    .steps > div { background: var(--bg-2); border-radius: var(--radius); padding: 1.6rem 1.8rem; border: 1px solid rgba(255,255,255,.05); }
-    .steps h3 { margin: 0 0 .8rem; }
-    .steps ol { margin: 0; padding-left: 1.2rem; color: #d2cadf; }
-    .steps li { margin-bottom: .45rem; }
-    .steps code { background: var(--bg); padding: .1rem .4rem; border-radius: 6px; font-size: .88em; }
-
-    footer { border-top: 1px solid rgba(255,255,255,.06); padding: 2.5rem 0 3rem; color: var(--muted); font-size: .88rem; }
-    footer .wrap { display: flex; flex-wrap: wrap; gap: 1rem 2rem; justify-content: space-between; }
-    footer a:hover { color: var(--text); }
-    footer p { margin: 0; max-width: 42rem; }
-
-    @media (max-width: 900px) {
-      .hero .wrap { grid-template-columns: 1fr; }
-      .tv { margin: 0 auto 1.5rem; width: 100%; max-width: 560px; }
-      .platforms, .steps { grid-template-columns: 1fr; }
-      .features { grid-template-columns: 1fr 1fr; }
+    /* film grain over everything */
+    body::after {
+      content: ""; position: fixed; inset: -50%; z-index: 100; pointer-events: none; opacity: .07;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      animation: grain 1s steps(6) infinite;
     }
-    @media (max-width: 600px) {
-      nav a:not(.dl-link) { display: none; }
-      .features { grid-template-columns: 1fr; }
-      .file em { display: none; }
-      .sub { white-space: normal; width: 90%; text-align: center; }
+    @keyframes grain { 0% { transform: translate(0, 0); } 33% { transform: translate(-3%, 2%); } 66% { transform: translate(2%, -3%); } 100% { transform: translate(0, 0); } }
+
+    .mono { font-family: var(--mono); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); }
+    .wrap { padding: 0 var(--gutter); max-width: 1440px; margin: 0 auto; }
+
+    /* ── top bar */
+    .top { display: flex; align-items: center; justify-content: space-between; height: 76px; border-bottom: 1px solid var(--line); }
+    .mark { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -.01em; font-size: 17px; }
+    .mark img { width: 26px; height: 26px; }
+    .top nav { display: flex; gap: 32px; align-items: center; }
+    .top nav a { color: var(--dim); font-size: 14px; transition: color .2s; }
+    .top nav a:hover { color: var(--paper); }
+    .top nav .get { color: var(--paper); border-bottom: 1px solid var(--coral); padding-bottom: 2px; }
+
+    /* ── hero */
+    .hero { padding: clamp(40px, 7vw, 96px) 0 0; }
+    .hero-head { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 40px; margin-bottom: clamp(32px, 4vw, 56px); }
+    h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(52px, 9.4vw, 148px); line-height: .92; letter-spacing: -.025em; margin: 0; }
+    h1 em { color: var(--coral); }
+    .hero-side { max-width: 330px; padding-bottom: 12px; }
+    .hero-side p { margin: 0 0 22px; color: #cfc6d6; font-size: 16px; }
+    .hero-side .fa { font-family: var(--fa); direction: rtl; text-align: right; color: var(--dim); font-size: 15px; margin-bottom: 26px; }
+
+    .btn { display: inline-flex; align-items: center; justify-content: space-between; gap: 28px; padding: 15px 18px 15px 22px; background: var(--paper); color: var(--ink); font-weight: 600; font-size: 15px; border-radius: 4px; transition: background .2s, transform .2s; }
+    .btn:hover { background: var(--coral); }
+    .btn .arrow { width: 18px; height: 18px; transition: transform .25s; }
+    .btn:hover .arrow { transform: translateY(2px); }
+    .btn small { display: block; font: 500 11px/1.2 var(--mono); letter-spacing: .04em; opacity: .55; margin-top: 3px; }
+    .alt { display: block; margin-top: 14px; font-size: 13px; color: var(--dim); }
+    .alt a { color: var(--paper); border-bottom: 1px solid var(--line-2); }
+
+    /* ── the screen */
+    .screen { position: relative; aspect-ratio: 2.39 / 1; overflow: hidden; background: #050407; border-radius: 2px; }
+    .scene { position: absolute; inset: 0; }
+    .sky { position: absolute; inset: 0 0 38% 0; background: linear-gradient(180deg, #0d0a18 0%, #24143a 38%, #6a2a48 70%, #e0644f 93%, #f3a35f 100%); }
+    .sun { position: absolute; left: 61%; top: 50%; width: 9%; aspect-ratio: 1; border-radius: 50%; transform: translate(-50%, -50%); background: radial-gradient(circle, #ffe3b0 0%, #ffb36b 45%, rgba(255,140,90,0) 70%); filter: blur(2px); animation: sink 24s ease-in-out infinite alternate; }
+    @keyframes sink { from { top: 48%; } to { top: 58%; } }
+    .sea { position: absolute; inset: 62% 0 0 0; background: linear-gradient(180deg, #3b1a2c 0%, #150c1c 55%, #07050b 100%); overflow: hidden; }
+    .sea::before { content: ""; position: absolute; left: 61%; top: 0; width: 22%; height: 100%; transform: translateX(-50%); background: repeating-linear-gradient(180deg, rgba(255,190,130,.55) 0 2px, transparent 2px 9px); mask-image: linear-gradient(180deg, #000 0%, transparent 85%); -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 85%); animation: shimmer 3.5s linear infinite; }
+    @keyframes shimmer { to { background-position: 0 18px; } }
+    .ridge { position: absolute; left: 0; right: 0; bottom: 38%; height: 18%; background: #0b0710; clip-path: polygon(0 100%, 0 62%, 8% 48%, 15% 58%, 24% 30%, 31% 46%, 38% 40%, 44% 64%, 52% 72%, 70% 78%, 78% 60%, 86% 66%, 93% 44%, 100% 56%, 100% 100%); opacity: .9; }
+    .vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 55% 55%, transparent 40%, rgba(0,0,0,.65) 100%); }
+
+    .sub { position: absolute; left: 50%; bottom: 13%; transform: translateX(-50%); width: 90%; text-align: center; font-family: var(--fa); font-weight: 500; font-size: clamp(15px, 2.3vw, 34px); line-height: 1.5; direction: rtl; color: #fff; text-shadow: 0 0 2px #000, 0 2px 6px rgba(0,0,0,.9); transition: opacity .35s; }
+    .sub.out { opacity: 0; }
+    .hud { position: absolute; left: 2.2%; right: 2.2%; display: flex; justify-content: space-between; align-items: center; font: 500 clamp(9px, 1vw, 12px)/1 var(--mono); letter-spacing: .06em; color: rgba(255,255,255,.72); text-transform: uppercase; }
+    .hud.t { top: 5%; }
+    .hud.b { bottom: 4.5%; }
+    .hud .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--coral); margin-right: 8px; animation: blink 1.6s infinite; }
+    @keyframes blink { 50% { opacity: .25; } }
+    .bar { flex: 1; height: 2px; margin: 0 18px; background: rgba(255,255,255,.2); position: relative; }
+    .bar i { position: absolute; inset: 0 auto 0 0; width: 37%; background: var(--paper); }
+    .bar i::after { content: ""; position: absolute; right: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--paper); }
+
+    .caption { display: flex; justify-content: space-between; gap: 20px; padding: 14px 0 0; }
+
+    /* ── ticker */
+    .ticker { margin-top: clamp(56px, 7vw, 96px); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); overflow: hidden; white-space: nowrap; }
+    .ticker div { display: inline-block; padding: 18px 0; animation: roll 40s linear infinite; }
+    .ticker span { font-family: var(--serif); font-size: clamp(22px, 2.6vw, 34px); margin: 0 28px; }
+    .ticker span:nth-child(even) { font-style: italic; color: var(--dim); }
+    @keyframes roll { to { transform: translateX(-50%); } }
+
+    /* ── sections */
+    .sec { padding: clamp(72px, 10vw, 140px) 0; }
+    .sec-head { display: grid; grid-template-columns: 220px 1fr; gap: 40px; margin-bottom: clamp(36px, 5vw, 64px); }
+    h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(40px, 5.6vw, 84px); line-height: .98; letter-spacing: -.02em; margin: 0; }
+    h2 em { color: var(--dim); }
+
+    /* downloads: a spec sheet */
+    .dl { border-top: 1px solid var(--line-2); }
+    .dl-group { display: grid; grid-template-columns: 220px 1fr; gap: 40px; padding: 28px 0 8px; border-bottom: 1px solid var(--line-2); }
+    .dl-group h3 { margin: 0; font-size: 20px; font-weight: 500; letter-spacing: -.01em; }
+    .dl-group h3 + .mono { margin-top: 6px; display: block; line-height: 1.6; }
+    .row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 28px; padding: 18px 0; border-bottom: 1px solid var(--line); transition: padding .25s, color .2s; }
+    .row:last-child { border-bottom: 0; }
+    .row b { font-weight: 500; font-size: 17px; }
+    .row b .rec { font: 500 10px/1 var(--mono); letter-spacing: .08em; color: var(--ink); background: var(--coral); padding: 4px 6px 3px; border-radius: 2px; margin-left: 10px; vertical-align: 3px; display: none; }
+    .row.recommended b .rec { display: inline-block; }
+    .row p { margin: 3px 0 0; color: var(--dim); font-size: 14px; }
+    .row .size { font-family: var(--mono); font-size: 13px; color: var(--dim); min-width: 64px; text-align: right; }
+    .row svg { width: 22px; height: 22px; stroke: var(--paper); fill: none; stroke-width: 1.5; transition: transform .25s, stroke .2s; }
+    .row:hover { padding-left: 12px; }
+    .row:hover svg { transform: translateY(3px); stroke: var(--coral); }
+    .after { margin: 22px 0 0 260px; color: var(--dim); font-size: 14px; }
+    .after a { color: var(--paper); border-bottom: 1px solid var(--line-2); }
+
+    /* features: numbered credits */
+    .feats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line-2); }
+    .feat { padding: 32px 32px 40px 0; border-bottom: 1px solid var(--line); }
+    .feat:not(:nth-child(3n+1)) { padding-left: 32px; border-left: 1px solid var(--line); }
+    .feat .n { font-family: var(--mono); font-size: 12px; color: var(--coral); }
+    .feat h3 { font-family: var(--serif); font-weight: 400; font-size: 32px; line-height: 1.05; margin: 18px 0 12px; }
+    .feat p { margin: 0; color: var(--dim); font-size: 15px; max-width: 34ch; }
+
+    /* farsi spotlight */
+    .spot { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(32px, 6vw, 96px); align-items: center; }
+    .spot .big { font-family: var(--fa); font-weight: 700; font-size: clamp(64px, 11vw, 168px); line-height: 1; direction: rtl; text-align: right; color: var(--paper); letter-spacing: -.01em; }
+    .spot .big span { color: var(--coral); }
+    .spot ul { list-style: none; margin: 28px 0 0; padding: 0; border-top: 1px solid var(--line-2); }
+    .spot li { display: flex; justify-content: space-between; gap: 20px; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+    .spot li span:last-child { color: var(--dim); text-align: right; }
+
+    /* install */
+    .steps { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-top: 1px solid var(--line-2); }
+    .steps > div { padding: 32px 40px 8px 0; }
+    .steps > div + div { padding-left: 40px; border-left: 1px solid var(--line); }
+    .steps h3 { font-family: var(--serif); font-weight: 400; font-size: 34px; margin: 0 0 18px; }
+    .steps ol { list-style: none; counter-reset: s; margin: 0; padding: 0; }
+    .steps li { counter-increment: s; display: grid; grid-template-columns: 40px 1fr; padding: 13px 0; border-bottom: 1px solid var(--line); color: #d8d0de; font-size: 15px; }
+    .steps li::before { content: counter(s, decimal-leading-zero); font: 500 12px/1.9 var(--mono); color: var(--dim); }
+    .steps code { font-family: var(--mono); font-size: 13px; color: var(--paper); border-bottom: 1px solid var(--coral); }
+
+    /* footer */
+    footer { border-top: 1px solid var(--line); padding-top: 40px; overflow: hidden; }
+    .foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px 60px; }
+    .foot p { margin: 0; max-width: 520px; color: var(--dim); font-size: 13px; }
+    .foot nav { display: flex; gap: 28px; font-size: 14px; }
+    .foot nav a { color: var(--dim); }
+    .foot nav a:hover { color: var(--paper); }
+    .wordmark { font-family: var(--serif); font-size: clamp(110px, 25vw, 420px); line-height: .78; letter-spacing: -.045em; margin: 48px 0 -0.08em; white-space: nowrap; color: transparent; -webkit-text-stroke: 1px var(--line-2); user-select: none; }
+    .wordmark i { -webkit-text-stroke: 1px rgba(255,111,97,.55); }
+
+    /* reveal on scroll */
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity .8s ease, transform .8s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .reveal { opacity: 1; transform: none; }
+    }
+
+    @media (max-width: 960px) {
+      .hero-head, .sec-head, .dl-group, .spot { grid-template-columns: 1fr; }
+      .hero-head { gap: 28px; }
+      .hero-side { max-width: none; }
+      .hero-side .fa { text-align: left; }
+      .sec-head { gap: 14px; }
+      .dl-group { gap: 12px; }
+      .after { margin-left: 0; }
+      .feats { grid-template-columns: 1fr 1fr; }
+      .feat:not(:nth-child(3n+1)) { padding-left: 0; border-left: 0; }
+      .feat:nth-child(even) { padding-left: 28px; border-left: 1px solid var(--line); }
+      .steps { grid-template-columns: 1fr; }
+      .steps > div + div { padding-left: 0; border-left: 0; }
+      .spot .big { text-align: left; }
+    }
+    @media (max-width: 620px) {
+      .top nav a:not(.get) { display: none; }
+      .screen { aspect-ratio: 16 / 10; }
+      .hud.t span:last-child, .caption span:last-child { display: none; }
+      .feats { grid-template-columns: 1fr; }
+      .feat:nth-child(even) { padding-left: 0; border-left: 0; }
+      .row { grid-template-columns: 1fr auto; }
+      .row .size { display: none; }
+      .btn { width: 100%; }
     }
   </style>
 </head>
 <body>
-  <header>
-    <div class="wrap">
-      <a class="brand" href="#"><img src="logo.svg" alt=""><span>Cine<b>Moy</b></span></a>
+  <div class="wrap">
+    <header class="top">
+      <a class="mark" href="#"><img src="logo.svg" alt="">CineMoy</a>
       <nav>
         <a href="#features">Features</a>
-        <a href="#install">How to install</a>
+        <a href="#install">Install</a>
         <a href="https://github.com/SaeedMoy/CineMoy" target="_blank" rel="noopener">GitHub</a>
-        <a class="dl-link" href="#download" style="color:var(--coral)">Download</a>
+        <a class="get" href="#download">Download</a>
       </nav>
-    </div>
-  </header>
+    </header>
 
-  <main>
     <section class="hero">
-      <div class="wrap">
-        <div>
-          <div class="tag">Free · Windows · Android · Android TV</div>
-          <h1>Movies & series,<br><span>with Farsi subtitles.</span></h1>
-          <p class="lead">Browse thousands of movies and series, press Play, and CineMoy finds the best stream and turns on Farsi subtitles for you.</p>
-          <p class="fa-line" dir="rtl" lang="fa">تماشای فیلم و سریال با زیرنویس فارسی — روی کامپیوتر، گوشی و تلویزیون</p>
-          <div class="cta">
-            <a class="btn primary" id="heroBtn" href="#download">
-              <svg viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v9.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.4l3.3 3.3V4a1 1 0 0 1 1-1zM5 19h14a1 1 0 1 1 0 2H5a1 1 0 1 1 0-2z"/></svg>
-              <span id="heroLabel">Download CineMoy</span>
+      <div class="hero-head">
+        <h1>Every film.<br><em>In Farsi.</em></h1>
+        <div class="hero-side">
+          <p>Movies and series on your PC, phone and TV. Press play — CineMoy finds the stream and brings the Farsi subtitles.</p>
+          <p class="fa" lang="fa">فیلم و سریال، با زیرنویس فارسی. روی کامپیوتر، گوشی و تلویزیون.</p>
+          <a class="btn" id="heroBtn" href="#download">
+            <span><span id="heroLabel">Download CineMoy</span><small id="heroMeta">Free · Windows · Android</small></span>
+            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4v15M5 12l7 7 7-7"/></svg>
+          </a>
+          <span class="alt" id="heroAlt">or see <a href="#download">all downloads</a></span>
+        </div>
+      </div>
+
+      <div class="screen" aria-hidden="true">
+        <div class="scene"><div class="sky"></div><div class="sun"></div><div class="ridge"></div><div class="sea"></div><div class="vignette"></div></div>
+        <div class="hud t"><span><span class="dot"></span>CineMoy · 1080p</span><span>زیرنویس · فارسی ✓</span></div>
+        <div class="sub" id="sub">قطار ساعت نه حرکت می‌کنه.</div>
+        <div class="hud b"><span id="tc">01:12:44</span><span class="bar"><i id="prog"></i></span><span>02:01:09</span></div>
+      </div>
+      <div class="caption"><span class="mono">Fig. 1 — Subtitles found, matched to the video and synced</span><span class="mono">Android TV · Windows · Android</span></div>
+
+      <div class="ticker" aria-hidden="true"><div>
+        <span>Farsi subtitles</span><span>4K HDR</span><span>Android TV</span><span>Dolby &amp; DTS</span><span>Subtitle sync</span><span>Continue watching</span><span>Next episode</span><span>Debrid</span>
+        <span>Farsi subtitles</span><span>4K HDR</span><span>Android TV</span><span>Dolby &amp; DTS</span><span>Subtitle sync</span><span>Continue watching</span><span>Next episode</span><span>Debrid</span>
+      </div></div>
+    </section>
+
+    <section class="sec" id="download">
+      <div class="sec-head reveal">
+        <span class="mono">01 — Download</span>
+        <h2>Get the app. <em>It's free.</em></h2>
+      </div>
+      <div class="dl reveal">
+        <div class="dl-group" id="gAndroid">
+          <div><h3>Android &amp; Android TV</h3><span class="mono">Android 7.0+<br>Phones · Google TV · TV boxes</span></div>
+          <div>
+            <a class="row" data-asset="arm64" href="https://github.com/SaeedMoy/CineMoy/releases/latest">
+              <div><b>Phones &amp; newer TVs<span class="rec">Recommended</span></b><p>Most phones, Google TV, Chromecast with Google TV</p></div>
+              <span class="size"></span><svg viewBox="0 0 24 24"><path d="M12 4v15M5 12l7 7 7-7"/></svg>
             </a>
-            <a class="btn ghost" href="#download">All downloads</a>
+            <a class="row" data-asset="armv7" href="https://github.com/SaeedMoy/CineMoy/releases/latest">
+              <div><b>TV boxes &amp; sticks</b><p>32-bit devices — use this if the first one won't install</p></div>
+              <span class="size"></span><svg viewBox="0 0 24 24"><path d="M12 4v15M5 12l7 7 7-7"/></svg>
+            </a>
+            <a class="row" data-asset="universal" href="https://github.com/SaeedMoy/CineMoy/releases/latest">
+              <div><b>Universal</b><p>Runs on any Android device, larger download</p></div>
+              <span class="size"></span><svg viewBox="0 0 24 24"><path d="M12 4v15M5 12l7 7 7-7"/></svg>
+            </a>
           </div>
-          <div class="ver" id="heroVer">Latest version</div>
+        </div>
+        <div class="dl-group" id="gWin">
+          <div><h3>Windows</h3><span class="mono">Windows 10 / 11<br>64-bit</span></div>
+          <div>
+            <a class="row" data-asset="setup" href="https://github.com/SaeedMoy/CineMoy/releases/latest">
+              <div><b>Installer<span class="rec">Recommended</span></b><p>Adds CineMoy to the Start menu</p></div>
+              <span class="size"></span><svg viewBox="0 0 24 24"><path d="M12 4v15M5 12l7 7 7-7"/></svg>
+            </a>
+            <a class="row" data-asset="portable" href="https://github.com/SaeedMoy/CineMoy/releases/latest">
+              <div><b>Portable</b><p>No installation — run it from any folder or USB stick</p></div>
+              <span class="size"></span><svg viewBox="0 0 24 24"><path d="M12 4v15M5 12l7 7 7-7"/></svg>
+            </a>
+          </div>
+        </div>
+      </div>
+      <p class="after reveal"><span id="verLine">Latest version</span> · Already installed? CineMoy updates itself. Older versions on <a href="https://github.com/SaeedMoy/CineMoy/releases" target="_blank" rel="noopener">GitHub</a>.</p>
+    </section>
+
+    <section class="sec" id="features" style="padding-top:0">
+      <div class="sec-head reveal">
+        <span class="mono">02 — What it does</span>
+        <h2>Press play.<br><em>That's the whole manual.</em></h2>
+      </div>
+      <div class="feats reveal">
+        <div class="feat"><span class="n">01</span><h3>One button</h3><p>CineMoy picks the best stream your device can play — the right quality, plenty of peers, no oversized files.</p></div>
+        <div class="feat"><span class="n">02</span><h3>Picks up where you left</h3><p>Continue watching on the home screen. Series roll into the next episode by themselves.</p></div>
+        <div class="feat"><span class="n">03</span><h3>Built for the couch</h3><p>A big-screen home with rows of titles, made to be driven entirely by an Android TV remote.</p></div>
+        <div class="feat"><span class="n">04</span><h3>Plays the hard files</h3><p>HEVC, 4K HDR, Dolby and DTS audio play natively on Android — no extra player apps.</p></div>
+        <div class="feat"><span class="n">05</span><h3>Nothing to sign up for</h3><p>No account, no subscription, no ads. Everything runs on your own device.</p></div>
+        <div class="feat"><span class="n">06</span><h3>Instant with debrid</h3><p>Real-Debrid, AllDebrid or Premiumize? Paste your Torrentio link in Settings for instant streams.</p></div>
+      </div>
+    </section>
+
+    <section class="sec" style="padding-top:0">
+      <div class="spot reveal">
+        <div>
+          <span class="mono">03 — Subtitles</span>
+          <h2 style="margin-top:18px">Farsi, done properly.</h2>
+          <ul>
+            <li><span>Found automatically</span><span>OpenSubtitles · SubDL</span></li>
+            <li><span>Matched to your exact video</span><span>Release-aware ranking</span></li>
+            <li><span>Old Persian files repaired</span><span>Old encodings &amp; Arabic letters fixed</span></li>
+            <li><span>Out of sync?</span><span>Shift ±0.5s from the remote</span></li>
+            <li><span>Right-to-left</span><span>Always</span></li>
+          </ul>
+        </div>
+        <div class="big" lang="fa">زیرنویس<br><span>فارسی</span></div>
+      </div>
+    </section>
+
+    <section class="sec" id="install" style="padding-top:0">
+      <div class="sec-head reveal">
+        <span class="mono">04 — Install</span>
+        <h2>Two minutes, <em>once.</em></h2>
+      </div>
+      <div class="steps reveal">
+        <div>
+          <h3>Android TV</h3>
+          <ol>
+            <li><span>Install <b>Downloader</b> from the Play Store on your TV.</span></li>
+            <li><span>Allow it to install apps: Settings → Apps → Security → Unknown sources.</span></li>
+            <li><span>In Downloader, open <code>cinemoy.fun</code> and pick your download.</span></li>
+            <li><span>Open CineMoy from your apps.</span></li>
+          </ol>
         </div>
         <div>
-          <div class="tv" aria-hidden="true">
-            <div class="screen">
-              <div class="glow"></div>
-              <div class="bar"><img src="logo.svg" alt=""><i></i><i></i><i></i></div>
-              <div class="title"><b></b><i></i><i></i><i style="width:70%"></i><div class="play"></div></div>
-              <div class="row"><div></div><div></div><div></div><div></div><div></div></div>
-            </div>
-            <div class="sub" lang="fa">زیرنویس فارسی، خودکار و هماهنگ</div>
-          </div>
+          <h3>Windows</h3>
+          <ol>
+            <li><span>Download the <b>Installer</b> and open it.</span></li>
+            <li><span>If SmartScreen appears: More info → Run anyway.</span></li>
+            <li><span>Open CineMoy from the Start menu.</span></li>
+            <li><span>Optional: add a free SubDL key in Settings for more Farsi subtitles.</span></li>
+          </ol>
         </div>
       </div>
     </section>
-
-    <section id="download">
-      <div class="wrap">
-        <h2>Download</h2>
-        <p class="sec-lead">Free and open source. Pick your device; the recommended file is highlighted.</p>
-        <div class="platforms">
-          <div class="platform" id="pWin">
-            <header>
-              <svg viewBox="0 0 24 24"><path d="M3 5.5 10.5 4.4v7H3v-5.9zm0 13 7.5 1.1v-7H3v5.9zm8.5 1.3L21 21v-8.4h-9.5v7.2zm0-15.6v7.2H21V3l-9.5 1.2z"/></svg>
-              <h3>Windows</h3><span class="badge">Recommended</span>
-            </header>
-            <p class="req">Windows 10 or 11, 64-bit</p>
-            <div class="files">
-              <a class="file main" data-asset="setup" href="https://github.com/SaeedMoy/CineMoy/releases/latest">
-                <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v9.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.4l3.3 3.3V4a1 1 0 0 1 1-1zM5 19h14a1 1 0 1 1 0 2H5a1 1 0 1 1 0-2z"/></svg></span>
-                <div><b>Installer</b><span>Adds CineMoy to the Start menu</span></div><em></em>
-              </a>
-              <a class="file" data-asset="portable" href="https://github.com/SaeedMoy/CineMoy/releases/latest">
-                <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v9.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.4l3.3 3.3V4a1 1 0 0 1 1-1zM5 19h14a1 1 0 1 1 0 2H5a1 1 0 1 1 0-2z"/></svg></span>
-                <div><b>Portable</b><span>No installation, run it from anywhere</span></div><em></em>
-              </a>
-            </div>
-          </div>
-
-          <div class="platform" id="pAndroid">
-            <header>
-              <svg viewBox="0 0 24 24"><path d="M17.6 9.5 19.4 6.4a.5.5 0 0 0-.9-.5l-1.8 3.1a11 11 0 0 0-9.4 0L5.5 5.9a.5.5 0 1 0-.9.5l1.8 3.1A10.4 10.4 0 0 0 1 18h22a10.4 10.4 0 0 0-5.4-8.5zM7 15.3a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4zm10 0a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4z"/></svg>
-              <h3>Android & Android TV</h3><span class="badge">Recommended</span>
-            </header>
-            <p class="req">Android 7.0 or newer · phones, tablets, Google TV, TV boxes</p>
-            <div class="files">
-              <a class="file main" data-asset="arm64" href="https://github.com/SaeedMoy/CineMoy/releases/latest">
-                <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v9.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.4l3.3 3.3V4a1 1 0 0 1 1-1zM5 19h14a1 1 0 1 1 0 2H5a1 1 0 1 1 0-2z"/></svg></span>
-                <div><b>Phones & newer TVs</b><span>Most phones, Google TV, Chromecast with Google TV</span></div><em></em>
-              </a>
-              <a class="file" data-asset="armv7" href="https://github.com/SaeedMoy/CineMoy/releases/latest">
-                <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v9.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.4l3.3 3.3V4a1 1 0 0 1 1-1zM5 19h14a1 1 0 1 1 0 2H5a1 1 0 1 1 0-2z"/></svg></span>
-                <div><b>TV boxes & sticks</b><span>Use this if the first one won't install (32-bit devices)</span></div><em></em>
-              </a>
-              <a class="file" data-asset="universal" href="https://github.com/SaeedMoy/CineMoy/releases/latest">
-                <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v9.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.4l3.3 3.3V4a1 1 0 0 1 1-1zM5 19h14a1 1 0 1 1 0 2H5a1 1 0 1 1 0-2z"/></svg></span>
-                <div><b>Universal</b><span>Works on any device — larger download</span></div><em></em>
-              </a>
-            </div>
-          </div>
-        </div>
-        <p class="note">Installed CineMoy already? It checks for updates by itself. All versions and release notes are on <a href="https://github.com/SaeedMoy/CineMoy/releases" target="_blank" rel="noopener">GitHub Releases</a>.</p>
-      </div>
-    </section>
-
-    <section id="features">
-      <div class="wrap">
-        <h2>Why CineMoy</h2>
-        <p class="sec-lead">Everything happens on your own device. No account, no subscription, no ads.</p>
-        <div class="features">
-          <div class="feature"><div class="fi">▶</div><h3>One-click Play</h3><p>CineMoy picks the best-quality stream your device can play. Resume where you left off, and series play the next episode automatically.</p></div>
-          <div class="feature"><div class="fi">💬</div><h3>Farsi subtitles, automatically</h3><p>Found on OpenSubtitles and SubDL, matched to your exact video, fixed for old Persian encodings and shown right-to-left.</p></div>
-          <div class="feature"><div class="fi">⏱</div><h3>Subtitle sync</h3><p>Subtitles a little early or late? Shift them in half-second steps, right from the remote.</p></div>
-          <div class="feature"><div class="fi">📺</div><h3>Made for the TV</h3><p>A big-screen home page with rows of titles, fully usable with an Android TV remote.</p></div>
-          <div class="feature"><div class="fi">🎞</div><h3>Plays almost anything</h3><p>On Android, a built-in player handles HEVC, 4K/HDR and Dolby/DTS audio without extra apps.</p></div>
-          <div class="feature"><div class="fi">⚡</div><h3>Instant with debrid</h3><p>Have Real-Debrid, AllDebrid or Premiumize? Add your Torrentio link in Settings for instant streams.</p></div>
-        </div>
-      </div>
-    </section>
-
-    <section id="install">
-      <div class="wrap">
-        <h2>How to install</h2>
-        <p class="sec-lead">CineMoy isn't in an app store yet, so your device asks you to confirm once.</p>
-        <div class="steps">
-          <div>
-            <h3>Windows</h3>
-            <ol>
-              <li>Download the <b>Installer</b> and open it.</li>
-              <li>If Windows SmartScreen appears, click <b>More info → Run anyway</b>.</li>
-              <li>Open CineMoy from the Start menu.</li>
-            </ol>
-          </div>
-          <div>
-            <h3>Android TV</h3>
-            <ol>
-              <li>Install the free <b>Downloader</b> app from the Play Store on your TV.</li>
-              <li>Allow it to install apps: <b>Settings → Apps → Security → Unknown sources</b>.</li>
-              <li>In Downloader, open <code>cinemoy.fun</code> and choose your download.</li>
-              <li>Open CineMoy from your apps.</li>
-            </ol>
-          </div>
-        </div>
-        <p class="note">Tip: add a free <a href="https://subdl.com/panel/api" target="_blank" rel="noopener">SubDL API key</a> in CineMoy's Settings for many more Farsi subtitles.</p>
-      </div>
-    </section>
-  </main>
+  </div>
 
   <footer>
     <div class="wrap">
-      <p>CineMoy doesn't host any videos. It finds streams from third-party sources; what you watch is your responsibility. Only watch content you have the right to access in your country.</p>
-      <div><a href="https://github.com/SaeedMoy/CineMoy" target="_blank" rel="noopener">GitHub</a> · <a href="https://github.com/SaeedMoy/CineMoy/releases" target="_blank" rel="noopener">Releases</a></div>
+      <div class="foot">
+        <p>CineMoy doesn't host any videos; it finds streams from third-party sources. What you watch is your responsibility — only watch content you have the right to access in your country.</p>
+        <nav><a href="https://github.com/SaeedMoy/CineMoy" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/SaeedMoy/CineMoy/releases" target="_blank" rel="noopener">Releases</a><a href="#download">Download</a></nav>
+      </div>
+      <div class="wordmark" aria-hidden="true">Cine<i>Moy</i></div>
     </div>
   </footer>
 
   <script>
-    // Fill in direct download links from the latest GitHub release (links fall back to the
-    // releases page if this fails), and highlight the right download for this device.
+    // Download links come from the latest GitHub release (fallback: the releases page).
     const REPO = 'SaeedMoy/CineMoy';
-    const ua = navigator.userAgent;
-    const isAndroid = /Android/i.test(ua);
-    const isWindows = /Windows/i.test(ua);
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const isWindows = /Windows/i.test(navigator.userAgent);
     const MATCH = {
       setup: a => /setup.*\.exe$/i.test(a.name),
       portable: a => /portable.*\.exe$/i.test(a.name),
@@ -296,32 +363,60 @@
       universal: a => /universal.*\.apk$/i.test(a.name),
     };
     const mb = n => Math.round(n / 1048576) + ' MB';
+    const $ = s => document.querySelector(s);
 
-    if (isAndroid) document.getElementById('pAndroid').classList.add('recommended');
-    else document.getElementById('pWin').classList.add('recommended');
-    if (isAndroid) document.querySelector('.platforms').prepend(document.getElementById('pAndroid'));
+    // The visitor's own platform first, with its recommended file marked.
+    if (!isAndroid) $('.dl').prepend($('#gWin'));
+    $(isAndroid ? '[data-asset="arm64"]' : '[data-asset="setup"]').classList.add('recommended');
 
     fetch(`https://api.github.com/repos/${REPO}/releases/latest`)
       .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
       .then(rel => {
         const version = String(rel.tag_name || '').replace(/^v/i, '');
-        const assets = rel.assets || [];
         const found = {};
         document.querySelectorAll('[data-asset]').forEach(el => {
-          const a = assets.find(MATCH[el.dataset.asset]);
+          const a = (rel.assets || []).find(MATCH[el.dataset.asset]);
           if (!a) return;
           found[el.dataset.asset] = a;
           el.href = a.browser_download_url;
-          el.querySelector('em').textContent = mb(a.size);
+          el.querySelector('.size').textContent = mb(a.size);
         });
         const hero = isAndroid ? found.arm64 : isWindows ? found.setup : null;
         if (hero) {
-          document.getElementById('heroBtn').href = hero.browser_download_url;
-          document.getElementById('heroLabel').innerHTML = `Download for ${isAndroid ? 'Android' : 'Windows'} <small>· ${mb(hero.size)}</small>`;
+          $('#heroBtn').href = hero.browser_download_url;
+          $('#heroLabel').textContent = `Download for ${isAndroid ? 'Android' : 'Windows'}`;
+          $('#heroMeta').textContent = `v${version} · ${mb(hero.size)}`;
         }
-        document.getElementById('heroVer').textContent = `Version ${version} · ` + new Date(rel.published_at).toLocaleDateString('en', { year: 'numeric', month: 'long', day: 'numeric' });
+        $('#verLine').textContent = `Version ${version}, ` + new Date(rel.published_at).toLocaleDateString('en', { month: 'long', day: 'numeric', year: 'numeric' });
       })
-      .catch(() => { document.getElementById('heroVer').textContent = 'See GitHub Releases for the latest version'; });
+      .catch(() => {});
+
+    // The screen: subtitles change like a film is playing.
+    const lines = [
+      'قطار ساعت نه حرکت می‌کنه.',
+      'فکر می‌کنی هنوز وقت داریم؟',
+      'این دفعه، تا آخرش می‌مونیم.',
+      'دریا همیشه همین‌قدر آروم بود؟',
+      'فردا صبح، قبل از طلوع.',
+    ];
+    let i = 0, secs = 1 * 3600 + 12 * 60 + 44;
+    const total = 2 * 3600 + 69;
+    const tc = s => [s / 3600 | 0, (s / 60 | 0) % 60, s % 60].map(n => String(n).padStart(2, '0')).join(':');
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    setInterval(() => {
+      secs++;
+      $('#tc').textContent = tc(secs);
+      $('#prog').style.width = (secs / total * 100).toFixed(2) + '%';
+    }, 1000);
+    if (!reduce) setInterval(() => {
+      const sub = $('#sub');
+      sub.classList.add('out');
+      setTimeout(() => { i = (i + 1) % lines.length; sub.textContent = lines[i]; sub.classList.remove('out'); }, 380);
+    }, 3400);
+
+    // Gentle reveal on scroll.
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .12 });
+    document.querySelectorAll('.reveal').forEach(el => io.observe(el));
   </script>
 </body>
 </html>
