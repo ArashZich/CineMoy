@@ -25,6 +25,9 @@ ipcMain.handle('cm:info', () => ({
   lanSharing: !!readConfig().lanSharing,
   addresses: lanAddresses().map(ip => `http://${ip}:${port}`),
   portable: !!process.env.PORTABLE_EXECUTABLE_FILE, // set by electron-builder's portable launcher
+  platform: process.platform, // win32 | darwin | linux
+  arch: process.arch,         // x64 | arm64
+  appImage: !!process.env.APPIMAGE,
 }));
 
 // The listen address is fixed at startup, so changing it restarts the app.

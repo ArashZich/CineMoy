@@ -938,6 +938,11 @@ async function pickAsset(platform, assets) {
     return (abi && assets.find(a => a.name.endsWith('.apk') && a.name.includes(abi))) || find(/universal.*\.apk$/i) || find(/\.apk$/i);
   }
   const info = await window.CineMoyDesktop.info().catch(() => ({}));
+  if (info.platform === 'darwin') {
+    const arch = info.arch === 'arm64' ? 'arm64' : 'x64';
+    return assets.find(a => a.name.endsWith('.dmg') && a.name.includes(`mac-${arch}`)) || find(/\.dmg$/i);
+  }
+  if (info.platform === 'linux') return info.appImage ? find(/\.AppImage$/i) : find(/\.deb$/i) || find(/\.AppImage$/i);
   return (info.portable ? find(/portable.*\.exe$/i) : find(/setup.*\.exe$/i)) || find(/\.exe$/i);
 }
 

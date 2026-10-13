@@ -1,9 +1,15 @@
 // Optional FFmpeg "compatibility mode": browsers/TVs can't decode HEVC, AC3, DTS, etc.
 // When ffmpeg is installed we remux/transcode on the fly to fragmented MP4 (H.264 + AAC).
+import fs from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 
-const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
-const FFPROBE = process.env.FFPROBE_PATH || 'ffprobe';
+// Apps opened from the macOS Finder don't get the shell's PATH, so look in Homebrew's folders too.
+const findTool = name => {
+  const dirs = process.platform === 'darwin' ? ['/opt/homebrew/bin', '/usr/local/bin'] : [];
+  return dirs.map(d => `${d}/${name}`).find(p => fs.existsSync(p)) || name;
+};
+const FFMPEG = process.env.FFMPEG_PATH || findTool('ffmpeg');
+const FFPROBE = process.env.FFPROBE_PATH || findTool('ffprobe');
 export const available = spawnSync(FFMPEG, ['-version']).status === 0 && spawnSync(FFPROBE, ['-version']).status === 0;
 
 const BROWSER_VIDEO = ['h264', 'vp8', 'vp9', 'av1'];
