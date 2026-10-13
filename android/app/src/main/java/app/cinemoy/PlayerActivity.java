@@ -71,6 +71,8 @@ public class PlayerActivity extends Activity {
     public static final String EXTRA_ENDED = "ended";
 
     private static final float SYNC_STEP = 0.5f;
+    // Left-to-right mark: keeps "فارسی · Provider · release" in reading order in menus.
+    private static final String LTR = "‎";
 
     private ExoPlayer player;
     private PlayerView view;
@@ -156,7 +158,7 @@ public class PlayerActivity extends Activity {
             OnlineSub o = new OnlineSub();
             o.cuesUrl = s.optString("cuesUrl");
             o.lang = s.optString("lang");
-            o.label = languageName(o.lang) + " · " + s.optString("label");
+            o.label = LTR + languageName(o.lang) + " · " + s.optString("label");
             online.add(o);
         }
 
@@ -207,6 +209,7 @@ public class PlayerActivity extends Activity {
                 androidx.media3.ui.R.id.exo_play_pause, androidx.media3.ui.R.id.exo_prev,
                 androidx.media3.ui.R.id.exo_next, androidx.media3.ui.R.id.exo_rew,
                 androidx.media3.ui.R.id.exo_ffwd, androidx.media3.ui.R.id.exo_settings,
+                androidx.media3.ui.R.id.exo_rew_with_amount, androidx.media3.ui.R.id.exo_ffwd_with_amount,
                 androidx.media3.ui.R.id.exo_progress,
         };
         for (int id : ids) {
@@ -261,7 +264,7 @@ public class PlayerActivity extends Activity {
                 final int track = i;
                 if (selectedOnline < 0 && g.isTrackSelected(i)) checked = labels.size();
                 String name = f.label != null ? f.label : languageName(f.language == null ? "" : f.language);
-                labels.add("In video · " + (name.isEmpty() ? "Track " + (i + 1) : name));
+                labels.add(LTR + "In video · " + (name.isEmpty() ? "Track " + (i + 1) : name));
                 actions.add(() -> {
                     selectOnline(-1, false);
                     setEmbeddedText(g, track);

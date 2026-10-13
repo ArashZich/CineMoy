@@ -979,7 +979,8 @@ $('#settingsBtn').onclick = openSettings;
 const openDialog = () => document.querySelector('dialog[open]');
 const FOCUSABLE = '.focusable, button, input, select, a[href]';
 function candidates(scope) {
-  return [...scope.querySelectorAll(FOCUSABLE)].filter(el => !el.disabled && el.getClientRects().length && !el.closest('[hidden]') && getComputedStyle(el).visibility !== 'hidden');
+  // tabindex="-1" (logo, "See all" headings) is mouse-only; the row's own "See all" tile covers remotes.
+  return [...scope.querySelectorAll(FOCUSABLE)].filter(el => !el.disabled && el.getAttribute('tabindex') !== '-1' && el.getClientRects().length && !el.closest('[hidden]') && getComputedStyle(el).visibility !== 'hidden');
 }
 function moveFocus(dir) {
   let scope = document;
