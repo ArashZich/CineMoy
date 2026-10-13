@@ -2,6 +2,11 @@
   "name": "cinemoy",
   "version": "0.2.0",
   "description": "Compact movie/series streaming app: Cinemeta catalog + Torrentio streams + Farsi subtitles. Runs on Windows (Electron), web and TV browsers.",
+  "homepage": "https://cinemoy.fun",
+  "author": {
+    "name": "Saeed Moy",
+    "email": "SaeedMoy@users.noreply.github.com"
+  },
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -49,6 +54,30 @@
     },
     "portable": {
       "artifactName": "CineMoy-${version}-portable.exe"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.entertainment",
+      "identity": "-",
+      "artifactName": "CineMoy-${version}-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "CineMoy ${version}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "AudioVideo",
+      "synopsis": "Movies & series with Farsi subtitles",
+      "artifactName": "CineMoy-${version}-linux-${arch}.${ext}"
+    },
+    "deb": {
+      "artifactName": "cinemoy_${version}_${arch}.${ext}"
     }
   },
   "engines": {

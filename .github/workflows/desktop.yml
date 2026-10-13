@@ -1,0 +1,54 @@
+# Builds the macOS and Linux desktop apps (they can't be built on Windows) and attaches
+# them to the GitHub release for the current version (tag v<package.json version>).
+name: Desktop builds (macOS, Linux)
+
+on:
+  push:
+    tags: ['v*']
+    branches: [desktop-mac-linux]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: --mac dmg zip --arm64 --x64
+          - os: ubuntu-22.04
+            target: --linux AppImage deb --x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        run: npx electron-builder ${{ matrix.target }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false' # no Apple certificate: ad-hoc signed (see package.json)
+
+      - name: Find release tag
+        id: tag
+        shell: bash
+        run: echo "tag=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Attach to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: |
+            dist/*.dmg
+            dist/*-mac-*.zip
+            dist/*.AppImage
+            dist/*.deb
+          fail_on_unmatched_files: false
