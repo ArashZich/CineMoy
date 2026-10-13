@@ -3,8 +3,11 @@ import path from 'node:path';
 import fs from 'node:fs';
 import WebTorrent from 'webtorrent';
 import { options } from './options.js';
+import PieceStore from './piece-store.js';
 
 const CACHE_DIR = options.cacheDir;
+// 32-bit builds can't address file positions past 2 GiB (see piece-store.js).
+const PIECE_FILES = ['arm', 'ia32'].includes(process.arch) || process.env.CINEMOY_PIECE_FILES === '1';
 const MAX_ACTIVE = 2;          // torrents kept alive at once
 const IDLE_MS = 5 * 60 * 1000; // drop torrents nobody has read from for this long
 
@@ -42,7 +45,7 @@ export function getTorrent(infoHash, extraTrackers = []) {
     [...new Set([...extraTrackers, ...TRACKERS])].map(t => `&tr=${encodeURIComponent(t)}`).join('');
   rec = { lastUsed: Date.now() };
   rec.ready = new Promise((resolve, reject) => {
-    const t = client.add(magnet, { path: path.join(CACHE_DIR, infoHash), deselect: true });
+    const t = client.add(magnet, { path: path.join(CACHE_DIR, infoHash), deselect: true, ...(PIECE_FILES ? { store: PieceStore } : {}) });
     rec.torrent = t;
     const timer = setTimeout(() => reject(new Error('No peers found for this torrent (timed out). Try another source.')), 60000);
     t.once('ready', () => { clearTimeout(timer); resolve(t); });
