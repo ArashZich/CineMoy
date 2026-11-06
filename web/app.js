@@ -1,4 +1,7 @@
 // CineMoy web client — no build step, so it runs as-is in Electron, browsers and TV web runtimes.
+import { recordWatch, seedFromProgress, watchStats, groupByDay, fmtDate, fmtClock, dayLabel, faDigits } from './watchlog.js?v=9';
+import { t, lang, calendar, translateDom } from './i18n.js?v=9';
+
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtTime = s => {
@@ -13,7 +16,7 @@ const store = {
   get(k, d) { try { return JSON.parse(localStorage.getItem('pp.' + k)) ?? d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem('pp.' + k, JSON.stringify(v)); } catch { /* private mode */ } },
 };
-const DEFAULTS = { apiBase: '', torrentio: '', subdlKey: '', subLangs: 'fa,en', subAddons: '', subSize: 34, autoSub: true, quality: '1080p' };
+const DEFAULTS = { apiBase: '', torrentio: '', subdlKey: '', subLangs: 'fa,en', subAddons: '', subSize: 34, autoSub: true, quality: '1080p', profileName: '' };
 let settings = { ...DEFAULTS, ...store.get('settings', {}) };
 let serverConfig = { ffmpeg: false, defaults: {} };
 
@@ -46,6 +49,7 @@ const ICON = {
   check: svg('m5 12.5 4.5 4.5L19 7.5'),
   x: svg('M6 6l12 12M18 6 6 18'),
   plus: svg('M12 5v14M5 12h14'),
+  user: svg('M12 12.5a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4zM4.4 20.5c.9-3.9 3.9-5.8 7.6-5.8s6.7 1.9 7.6 5.8'),
 };
 
 function toast(msg, ms = 3500) {
@@ -72,6 +76,27 @@ const brief = m => ({
   id: m.id, type: m.type, name: m.name, poster: m.poster, background: m.background, logo: m.logo,
   year: m.year, rating: m.rating, runtime: m.runtime, genres: (m.genres || []).slice(0, 3), description: (m.description || '').slice(0, 400),
 });
+
+// ---------------------------------------------------------------- watch history
+// Stored on this device. Unlike Continue watching, a finished title stays here.
+const watchHistory = (() => {
+  let log = store.get('history', []);
+  const save = () => store.set('history', log);
+  if (!store.get('historySeeded', false)) {
+    log = seedFromProgress(log, progress.all());
+    save();
+    store.set('historySeeded', true);
+  }
+  return {
+    all: () => log,
+    record(w) {
+      const next = recordWatch(log, w);
+      if (next !== log) { log = next; save(); }
+    },
+    remove(key) { log = log.filter(e => e.key !== key); save(); },
+    clear() { log = []; save(); },
+  };
+})();
 
 // ---------------------------------------------------------------- library (Favorites + watchlists)
 // Stored on this device, like Continue watching. "fav" is the built-in Favorites list; the rest
@@ -168,10 +193,10 @@ const YEAR = new Date().getFullYear();
 
 const stars = r => {
   const n = Math.round((Number(r) || 0) / 2);
-  return r ? `<span class="stars" aria-label="Rated ${esc(r)} of 10">${'★'.repeat(n)}<i>${'★'.repeat(5 - n)}</i></span> ${esc(r)}` : '';
+  return r ? `<span class="stars" aria-label="${esc(t('Rated {rating} of 10', { rating: Number(r) || r }))}">${'★'.repeat(n)}<i>${'★'.repeat(5 - n)}</i></span> ${esc(r)}` : '';
 };
-const runtimeText = r => (r && /^\d+$/.test(String(r)) ? `${r} min` : r || '');
-const metaLine = m => [stars(m.rating), m.year && esc(m.year), runtimeText(m.runtime) && esc(runtimeText(m.runtime)), (m.genres || []).slice(0, 3).map(esc).join(' · ')]
+const runtimeText = r => { const n = /^(\d+)( min)?$/.exec(String(r ?? '')); return n ? t('{runtime} min', { runtime: Number(n[1]) }) : r || ''; };
+const metaLine = m => [stars(m.rating), m.year && esc(m.year), runtimeText(m.runtime) && esc(runtimeText(m.runtime)), (m.genres || []).slice(0, 3).map(g => esc(t(g))).join(' · ')]
   .filter(Boolean).map(x => `<span>${x}</span>`).join('');
 const titleHref = (m, videoId) => `#/title/${m.type}/${encodeURIComponent(m.id)}${videoId ? '/' + encodeURIComponent(videoId) : ''}`;
 
@@ -182,25 +207,25 @@ const cinemeta = (title, type, { list = 'top', genre = '' } = {}) => ({
   href: `#/browse/${type}/${list}/${encodeURIComponent(genre)}`,
 });
 
-const genreShelves = (type, genres) => genres.map(g => cinemeta(g, type, { genre: g }));
+const genreShelves = (type, genres) => genres.map(g => cinemeta(t(g), type, { genre: g }));
 const SHELVES = {
   home: [
-    cinemeta('Popular movies', 'movie'),
-    cinemeta('Popular series', 'series'),
-    cinemeta(`New movies of ${YEAR}`, 'movie', { list: 'year' }),
-    cinemeta(`New series of ${YEAR}`, 'series', { list: 'year' }),
-    cinemeta('Action', 'movie', { genre: 'Action' }),
-    cinemeta('Crime series', 'series', { genre: 'Crime' }),
-    cinemeta('Comedy', 'movie', { genre: 'Comedy' }),
-    cinemeta('Sci-Fi', 'movie', { genre: 'Sci-Fi' }),
-    cinemeta('Animation', 'movie', { genre: 'Animation' }),
+    cinemeta(t('Popular movies'), 'movie'),
+    cinemeta(t('Popular series'), 'series'),
+    cinemeta(t('New movies of {year}', { year: YEAR }), 'movie', { list: 'year' }),
+    cinemeta(t('New series of {year}', { year: YEAR }), 'series', { list: 'year' }),
+    cinemeta(t('Action'), 'movie', { genre: 'Action' }),
+    cinemeta(t('Crime series'), 'series', { genre: 'Crime' }),
+    cinemeta(t('Comedy'), 'movie', { genre: 'Comedy' }),
+    cinemeta(t('Sci-Fi'), 'movie', { genre: 'Sci-Fi' }),
+    cinemeta(t('Animation'), 'movie', { genre: 'Animation' }),
   ],
   movie: [
-    cinemeta('Popular', 'movie'), cinemeta(`New in ${YEAR}`, 'movie', { list: 'year' }),
+    cinemeta(t('Popular'), 'movie'), cinemeta(t('New in {year}', { year: YEAR }), 'movie', { list: 'year' }),
     ...genreShelves('movie', ['Action', 'Comedy', 'Drama', 'Thriller', 'Sci-Fi', 'Horror', 'Romance', 'Animation', 'Documentary']),
   ],
   series: [
-    cinemeta('Popular', 'series'), cinemeta(`New in ${YEAR}`, 'series', { list: 'year' }),
+    cinemeta(t('Popular'), 'series'), cinemeta(t('New in {year}', { year: YEAR }), 'series', { list: 'year' }),
     ...genreShelves('series', ['Drama', 'Crime', 'Comedy', 'Sci-Fi', 'Thriller', 'Mystery', 'Animation', 'Documentary']),
   ],
 };
@@ -225,7 +250,7 @@ function tile(m, prog) {
 }
 // Images fade in when they arrive instead of popping in.
 const lazyImg = src => `<img class="fade" src="${esc(src)}" alt="" loading="lazy" decoding="async" onload="this.classList.add('in')" onerror="this.remove()">`;
-const favMark = m => (library.isFav(m) ? `<span class="fav-mark" title="Favorite">${ICON.heart}</span>` : '');
+const favMark = m => (library.isFav(m) ? `<span class="fav-mark" title="${esc(t('Favorite'))}">${ICON.heart}</span>` : '');
 
 // Portrait poster (grids).
 function poster(m) {
@@ -293,7 +318,7 @@ function bindHero(root) {
   root.addEventListener('mouseover', pick);
 }
 
-const seeAllTile = (href, title) => `<a class="tile more-tile focusable" tabindex="0" href="${href}"><span>See all<br>${esc(title)}</span></a>`;
+const seeAllTile = (href, title) => `<a class="tile more-tile focusable" tabindex="0" href="${href}"><span>${t('See all')}<br>${esc(title)}</span></a>`;
 
 // ---- shelves page: hero banner + rows (Home / Movies / Series)
 async function shelves(tab) {
@@ -306,10 +331,10 @@ async function shelves(tab) {
   const list = SHELVES[tab];
   setPage('shelves', `<div class="browse">${heroMarkup}
     <div class="rows" id="rows">
-      ${cont.length ? `<section class="shelf" data-s="cont"><h2>Continue watching</h2><div class="row">${cont.map(p => tile(p, p)).join('')}</div></section>` : ''}
-      ${mine.map(l => `<section class="shelf" data-s="lib:${esc(l.id)}"><h2>${esc(l.name)} <a class="see-all" href="#/library/${esc(l.id)}" tabindex="-1">See all ›</a></h2>
-        <div class="row">${l.items.slice(0, 24).map(m => tile(m)).join('')}${l.items.length > 24 ? seeAllTile(`#/library/${esc(l.id)}`, l.name) : ''}</div></section>`).join('')}
-      ${list.map((s, i) => `<section class="shelf" data-s="cat:${i}" data-i="${i}"><h2>${esc(s.title)} <a class="see-all" href="${s.href}" tabindex="-1">See all ›</a></h2>
+      ${cont.length ? `<section class="shelf" data-s="cont"><h2>${t('Continue watching')}</h2><div class="row">${cont.map(p => tile(p, p)).join('')}</div></section>` : ''}
+      ${mine.map(l => `<section class="shelf" data-s="lib:${esc(l.id)}"><h2>${esc(t(l.name))} <a class="see-all" href="#/library/${esc(l.id)}" tabindex="-1">${t('See all ›')}</a></h2>
+        <div class="row">${l.items.slice(0, 24).map(m => tile(m)).join('')}${l.items.length > 24 ? seeAllTile(`#/library/${esc(l.id)}`, t(l.name)) : ''}</div></section>`).join('')}
+      ${list.map((s, i) => `<section class="shelf" data-s="cat:${i}" data-i="${i}"><h2>${esc(s.title)} <a class="see-all" href="${s.href}" tabindex="-1">${t('See all ›')}</a></h2>
         <div class="row">${skeletonRow(8)}</div></section>`).join('')}
     </div></div>`);
   const rows = $('#rows');
@@ -347,7 +372,11 @@ async function shelves(tab) {
 // ---- grid page ("See all")
 async function browse(type, list, genre) {
   setTab(type);
-  const title = list === 'year' ? `New ${type === 'movie' ? 'movies' : 'series'} of ${genre || YEAR}` : `${genre || 'Popular'} ${type === 'movie' ? 'movies' : 'series'}`;
+  const title = list === 'year'
+    ? (type === 'movie' ? t('New movies of {year}', { year: genre || YEAR }) : t('New series of {year}', { year: genre || YEAR }))
+    : genre
+      ? (type === 'movie' ? t('{genre} movies', { genre: t(genre) }) : t('{genre} series', { genre: t(genre) }))
+      : (type === 'movie' ? t('Popular movies') : t('Popular series'));
   const memo = navMemory.get(hashKey());
   if (memo) memo.focused = false;
   setPage('browse', `<div class="page"><h1 class="page-title">${esc(title)}</h1><div id="grid">${skeletonGrid(18)}</div></div>`);
@@ -356,7 +385,7 @@ async function browse(type, list, genre) {
     const more = await cachedJSON(`/api/catalog?type=${type}&list=${list}&genre=${encodeURIComponent(genre)}&skip=${items.length}`);
     items = items.concat(more.filter(m => !items.some(i => i.id === m.id)));
     $('#grid').innerHTML = `<div class="grid">${items.map(poster).join('')}</div>
-      ${more.length ? '<button class="pill more focusable" id="moreBtn">Load more</button>' : ''}`;
+      ${more.length ? `<button class="pill more focusable" id="moreBtn">${t('Load more')}</button>` : ''}`;
     const btn = $('#moreBtn');
     if (btn) btn.onclick = () => { const n = items.length; load().then(() => $('#grid .grid').children[n]?.focus()); };
     return more.length;
@@ -366,7 +395,7 @@ async function browse(type, list, genre) {
     for (let n = await load(); memo && n && items.length < memo.count;) n = await load();
     if (memo && $('#grid')?.isConnected) { scrollTo(0, memo.y); restoreIn(view, memo); }
   } catch (e) {
-    if ($('#grid')) $('#grid').innerHTML = `<div class="error">Could not load: ${esc(e.message)}</div>`;
+    if ($('#grid')) $('#grid').innerHTML = `<div class="error">${t('Could not load: {error}', { error: esc(e.message) })}</div>`;
   }
 }
 
@@ -384,21 +413,21 @@ async function search(q) {
     const [movies, series] = await Promise.all(['movie', 'series'].map(t => cachedJSON(`/api/catalog?type=${t}&q=${encodeURIComponent(q)}`)));
     if (token !== searchToken || view.dataset.page !== 'search') return;
     $('.page').innerHTML = `<h1 class="page-title">“${esc(q)}”</h1>
-      <h2>Movies</h2>${movies.length ? `<div class="grid">${movies.map(poster).join('')}</div>` : '<div class="empty">No movies found</div>'}
-      <h2>Series</h2>${series.length ? `<div class="grid">${series.map(poster).join('')}</div>` : '<div class="empty">No series found</div>'}`;
+      <h2>${t('Movies')}</h2>${movies.length ? `<div class="grid">${movies.map(poster).join('')}</div>` : `<div class="empty">${t('No movies found')}</div>`}
+      <h2>${t('Series')}</h2>${series.length ? `<div class="grid">${series.map(poster).join('')}</div>` : `<div class="empty">${t('No series found')}</div>`}`;
     if (focusResults) { focusResults = false; $('.page .poster-card')?.focus(); }
     else if (memo) { scrollTo(0, memo.y); restoreIn(view, memo); }
   } catch (e) {
-    if (token === searchToken && view.dataset.page === 'search') $('.page').innerHTML = `<div class="error">Search failed: ${esc(e.message)}</div>`;
+    if (token === searchToken && view.dataset.page === 'search') $('.page').innerHTML = `<div class="error">${t('Search failed: {error}', { error: esc(e.message) })}</div>`;
   }
 }
 
 // ---- My List: Favorites + the user's watchlists
 const LIB_SORTS = {
-  added: ['Recently added', (a, b) => (b.added || 0) - (a.added || 0)],
-  name: ['Title A–Z', (a, b) => String(a.name).localeCompare(String(b.name))],
-  year: ['Newest first', (a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0)],
-  rating: ['Top rated', (a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0)],
+  added: [t('Recently added'), (a, b) => (b.added || 0) - (a.added || 0)],
+  name: [t('Title A–Z'), (a, b) => String(a.name).localeCompare(String(b.name))],
+  year: [t('Newest first'), (a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0)],
+  rating: [t('Top rated'), (a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0)],
 };
 
 function libraryPage(id) {
@@ -408,7 +437,7 @@ function libraryPage(id) {
   let cur = library.get(id) || library.lists()[0];
   let editing = false;
   setPage('library', `<div class="page library">
-    <h1 class="page-title">My List</h1>
+    <h1 class="page-title">${t('My List')}</h1>
     <div class="chips lib-tabs" id="libTabs" role="tablist"></div>
     <div class="lib-bar" id="libBar"></div>
     <div id="libGrid"></div></div>`);
@@ -422,47 +451,52 @@ function libraryPage(id) {
   const render = (focus) => {
     const sort = LIB_SORTS[store.get('libSort', 'added')] ? store.get('libSort', 'added') : 'added';
     $('#libTabs').innerHTML = library.lists().map(l => `<button class="chip focusable ${l.id === cur.id ? 'active' : ''}" role="tab" aria-selected="${l.id === cur.id}" data-list="${esc(l.id)}">
-        ${l.id === 'fav' ? ICON.heart : ''}${esc(l.name)}<span class="n">${l.items.length}</span></button>`).join('')
-      + `<button class="chip focusable add" id="libNew">${ICON.plus}New list</button>`;
+        ${l.id === 'fav' ? ICON.heart : ''}${esc(t(l.name))}<span class="n">${t('{count}', { count: l.items.length })}</span></button>`).join('')
+      + `<button class="chip focusable add" id="libNew">${ICON.plus}${t('New list')}</button>`;
     $('#libBar').innerHTML = `
-      <select id="libSort" class="focusable" aria-label="Sort">${Object.entries(LIB_SORTS).map(([k, [label]]) => `<option value="${k}" ${k === sort ? 'selected' : ''}>${label}</option>`).join('')}</select>
+      <select id="libSort" class="focusable" aria-label="${esc(t('Sort'))}">${Object.entries(LIB_SORTS).map(([k, [label]]) => `<option value="${k}" ${k === sort ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select>
       <span class="spacer"></span>
-      ${cur.items.length ? `<button class="pill focusable ${editing ? 'primary' : ''}" id="libEdit">${editing ? 'Done' : 'Remove titles'}</button>` : ''}
-      ${cur.id !== 'fav' ? '<button class="pill focusable" id="libRename">Rename</button><button class="pill focusable danger" id="libDelete">Delete list</button>' : ''}`;
+      ${cur.items.length ? `<button class="pill focusable ${editing ? 'primary' : ''}" id="libEdit">${editing ? t('Done') : t('Remove titles')}</button>` : ''}
+      ${cur.id !== 'fav' ? `<button class="pill focusable" id="libRename">${t('Rename')}</button><button class="pill focusable danger" id="libDelete">${t('Delete list')}</button>` : ''}`;
     const items = [...cur.items].sort(LIB_SORTS[sort][1]);
     $('#libGrid').innerHTML = items.length
       ? `<div class="grid ${editing ? 'editing' : ''}">${items.map(m => (editing ? removable(m) : poster(m))).join('')}</div>`
       : `<div class="lib-empty">${cur.id === 'fav' ? ICON.heart : ICON.bookmark}
-          <h2>${cur.id === 'fav' ? 'No favorites yet' : `“${esc(cur.name)}” is empty`}</h2>
-          <p>${cur.id === 'fav' ? 'Open any movie or series and press <b>Favorite</b> to keep it here.' : 'Open any movie or series and press <b>Add to list</b>.'}</p>
-          <a class="pill primary focusable" href="#/">Find something to watch</a></div>`;
+          <h2>${cur.id === 'fav' ? t('No favorites yet') : t('“{name}” is empty', { name: esc(t(cur.name)) })}</h2>
+          <p>${cur.id === 'fav' ? t('Open any movie or series and press <b>Favorite</b> to keep it here.') : t('Open any movie or series and press <b>Add to list</b>.')}</p>
+          <a class="pill primary focusable" href="#/">${t('Find something to watch')}</a></div>`;
 
     $('#libTabs').querySelectorAll('[data-list]').forEach(b => b.onclick = () => { show(library.get(b.dataset.list)); $(`#libTabs [data-list="${CSS.escape(cur.id)}"]`)?.focus(); });
     $('#libNew').onclick = async () => {
-      const name = await ask({ title: 'New list', value: '', ok: 'Create', placeholder: 'e.g. Weekend movies' });
+      const name = await ask({ title: t('New list'), value: '', ok: t('Create'), placeholder: t('e.g. Weekend movies') });
       if (name) { show(library.create(name)); $(`#libTabs [data-list="${CSS.escape(cur.id)}"]`)?.focus(); } else $('#libNew')?.focus();
     };
     $('#libSort').onchange = e => { store.set('libSort', e.target.value); render('#libSort'); };
     if ($('#libEdit')) $('#libEdit').onclick = () => { editing = !editing; render('#libEdit'); };
     if ($('#libRename')) $('#libRename').onclick = async () => {
-      const name = await ask({ title: 'Rename list', value: cur.name, ok: 'Save' });
+      const name = await ask({ title: t('Rename list'), value: cur.name, ok: t('Save') });
       if (name) library.rename(cur.id, name);
       render('#libRename');
     };
     if ($('#libDelete')) $('#libDelete').onclick = async () => {
-      const ok = await ask({ title: `Delete “${cur.name}”?`, text: cur.items.length ? `Its ${cur.items.length} title${cur.items.length === 1 ? '' : 's'} stay in your other lists.` : 'The list is empty.', ok: 'Delete', danger: true });
+      const ok = await ask({
+        title: t('Delete “{name}”?', { name: cur.name }),
+        text: cur.items.length ? t(cur.items.length === 1 ? 'Its {count} title stays in your other lists.' : 'Its {count} titles stay in your other lists.', { count: cur.items.length }) : t('The list is empty.'),
+        ok: t('Delete'),
+        danger: true
+      });
       if (!ok) return $('#libDelete')?.focus();
       const name = cur.name;
       library.remove(cur.id);
       show(library.get('fav'));
       $('#libTabs .chip.active')?.focus();
-      toast(`Deleted “${name}”`);
+      toast(t('Deleted “{name}”', { name }));
     };
     $('#libGrid').querySelectorAll('.removable').forEach((b, i) => b.onclick = () => {
       const m = cur.items.find(x => `${x.type}:${x.id}` === b.dataset.key);
       if (!m) return;
       library.toggle(cur.id, m);
-      toast(`Removed “${m.name}”`, 2200);
+      toast(t('Removed “{name}”', { name: m.name }), 2200);
       if (!cur.items.length) editing = false;
       render();
       const cards = $('#libGrid').querySelectorAll('.removable');
@@ -473,7 +507,106 @@ function libraryPage(id) {
   render();
   if (memo) { scrollTo(0, memo.y); restoreIn(view, memo); }
 }
-const removable = m => `<button class="poster-card removable focusable" data-key="${esc(`${m.type}:${m.id}`)}" aria-label="Remove ${esc(m.name)}">
+// ---------------------------------------------------------------- profile (name, totals, history)
+// The Android player's text, sent with each play request (see PlayerActivity.l).
+const NATIVE_TEXT = ['Off', 'In video', 'Track', 'No subtitles found for this video', 'Subtitles', 'Sync…', 'Subtitle: ', 'Subtitle failed to load',
+  'Sync works with the online subtitles. Choose one in Subtitles first.', '− 0.5s  earlier', 'later  + 0.5s', 'Subtitle sync',
+  'If the text comes before the voices, press “later”. If it comes after, press “earlier”.', 'Done', '%d peers · %s', 'storage almost full',
+  'This source could not be loaded (too few peers?). Try another source.', 'Playback failed: ', 'Close'];
+const LANGUAGES = [['fa', 'فارسی'], ['en', 'English']];
+function setLanguage(value) {
+  if (value === lang) return;
+  settings.lang = value;
+  store.set('settings', settings);
+  location.reload();
+}
+const HISTORY_PAGE = 100;
+let historyShown = HISTORY_PAGE; // kept, so Back lands on a row that is still drawn
+const watchedTime = s => (s < 3600 ? t('{m} min', { m: Math.round(s / 60) }) : t('{h} h', { h: Math.round(s / 360) / 10 }));
+
+function historyRow(e) {
+  const pct = e.dur ? Math.min(100, (e.pos / e.dur) * 100) : 0;
+  const status = e.views > 1 ? t('Finished · {views} times', { views: e.views }) : e.views ? t('Finished') : t('{pct}% watched', { pct: Math.round(pct) });
+  const sub = e.season != null ? `S${e.season} · E${e.episode}${e.epTitle ? ' · ' + e.epTitle : ''}` : e.year || '';
+  return `<div class="hist-row">
+    <a class="hist-link focusable" tabindex="0" href="${titleHref(e, e.videoId)}">
+      <div class="hist-art">${e.poster ? lazyImg(e.poster) : ''}</div>
+      <div class="hist-text">
+        <div class="hist-name" dir="auto">${esc(e.name)}</div>
+        ${sub ? `<div class="hist-sub" dir="auto">${esc(sub)}</div>` : ''}
+        <div class="hist-sub"><span class="${e.views ? 'done' : ''}">${esc(status)}</span> · <span dir="auto">${esc(fmtClock(e.at, calendar))}</span></div>
+        ${e.views ? '' : `<div class="tile-prog hist-prog"><i style="width:${pct}%"></i></div>`}
+      </div>
+    </a>
+    <button class="hist-x icon-btn focusable" data-remove="${esc(e.key)}" title="${esc(t('Remove from history'))}" aria-label="${esc(t('Remove {name} from history', { name: e.name }))}">${ICON.x}</button>
+  </div>`;
+}
+
+function profilePage() {
+  setTab('profile');
+  const memo = navMemory.get(hashKey());
+  if (memo) memo.focused = false;
+  setPage('profile', '<div class="page profile"><div id="profHead"></div><div id="histList"></div></div>');
+
+  const render = focus => {
+    const log = watchHistory.all();
+    const s = watchStats(log);
+    const since = log.length ? Math.min(...log.map(e => e.first)) : 0;
+    const name = settings.profileName || t('My profile');
+    const stat = (n, label) => `<div class="prof-stat"><b>${esc(lang === 'fa' && typeof n === 'number' ? faDigits(n) : n)}</b><span>${esc(label)}</span></div>`;
+    $('#profHead').innerHTML = `
+      <div class="prof-head">
+        <div class="prof-avatar">${settings.profileName ? esc([...settings.profileName][0].toUpperCase()) : ICON.user}</div>
+        <div class="prof-id">
+          <h1 class="page-title" dir="auto">${esc(name)}</h1>
+          ${since ? `<p class="muted">${t('Watching since {date}', { date: `<span dir="auto">${esc(fmtDate(since, calendar))}</span>` })}</p>` : ''}
+        </div>
+        <button class="pill focusable" id="profName">${t('Edit name')}</button>
+      </div>
+      <div class="prof-stats">${stat(s.movies, t('Movies'))}${stat(s.series, t('Series'))}${stat(s.episodes, t('Episodes'))}${stat(watchedTime(s.seconds), t('Watched'))}</div>
+      <div class="lib-bar">
+        <div class="chips lib-tabs prof-lang" role="group" aria-label="${esc(t('Language'))}">${LANGUAGES.map(([v, label]) => `<button class="chip focusable ${v === lang ? 'active' : ''}" aria-pressed="${v === lang}" data-lang="${v}">${label}</button>`).join('')}</div>
+        <span class="spacer"></span>
+        ${log.length ? `<button class="pill focusable danger" id="histClear">${t('Clear history')}</button>` : ''}
+      </div>`;
+    const days = groupByDay(log.slice(0, historyShown));
+    $('#histList').innerHTML = log.length
+      ? days.map(d => `<h2 class="hist-day" dir="auto">${esc(dayLabel(d.day, calendar))}</h2>${d.items.map(historyRow).join('')}`).join('')
+        + (log.length > historyShown ? `<button class="pill focusable hist-more" id="histMore">${t('Show more')}</button>` : '')
+      : `<div class="lib-empty">${ICON.user}<h2>${t('Nothing watched yet')}</h2>
+          <p>${t('Movies and episodes you watch show up here with their date.')}</p>
+          <a class="pill primary focusable" href="#/">${t('Find something to watch')}</a></div>`;
+
+    $('#profName').onclick = async () => {
+      const value = await ask({ title: t('Your name'), value: settings.profileName, ok: t('Save'), placeholder: t('Your name') });
+      if (value) { settings.profileName = value.trim().slice(0, 40); store.set('settings', settings); }
+      render('#profName');
+    };
+    view.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => setLanguage(b.dataset.lang));
+    if ($('#histClear')) $('#histClear').onclick = async () => {
+      const ok = await ask({ title: t('Clear watch history?'), text: t('Continue watching and your lists stay as they are.'), ok: t('Clear'), danger: true });
+      if (ok) watchHistory.clear();
+      render(ok ? '#profName' : '#histClear');
+    };
+    if ($('#histMore')) $('#histMore').onclick = () => {
+      const next = $('#histList').querySelectorAll('.hist-row').length;
+      historyShown += HISTORY_PAGE;
+      render();
+      $('#histList').querySelectorAll('.hist-link')[next]?.focus();
+    };
+    $('#histList').querySelectorAll('[data-remove]').forEach((b, i) => b.onclick = () => {
+      watchHistory.remove(b.dataset.remove);
+      render();
+      const rows = $('#histList').querySelectorAll('[data-remove]');
+      (rows[Math.min(i, rows.length - 1)] || $('#profName')).focus();
+    });
+    if (typeof focus === 'string') $(focus)?.focus();
+  };
+  render();
+  if (memo) { scrollTo(0, memo.y); restoreIn(view, memo); }
+}
+
+const removable = m => `<button class="poster-card removable focusable" data-key="${esc(`${m.type}:${m.id}`)}" aria-label="${esc(t('Remove {name}', { name: m.name }))}">
     <div class="poster-art">${m.poster ? lazyImg(m.poster) : ''}<span class="remove-x">${ICON.x}</span></div>
     <div class="poster-name">${esc(m.name)}</div>
     <div class="poster-sub">${esc(m.year || '')}</div>
@@ -487,8 +620,8 @@ function ask({ title, text = '', value, ok = 'OK', danger = false, placeholder =
     <h2 style="margin-top:0">${esc(title)}</h2>
     ${text ? `<p class="muted">${esc(text)}</p>` : ''}
     ${withInput ? `<input id="askInput" class="focusable" maxlength="40" autocomplete="off" value="${esc(value)}" placeholder="${esc(placeholder)}">` : ''}
-    <div class="actions"><button type="button" class="pill focusable" id="askCancel">Cancel</button>
-      <button class="pill primary focusable ${danger ? 'danger' : ''}" id="askOk">${esc(ok)}</button></div></form>`;
+    <div class="actions"><button type="button" class="pill focusable" id="askCancel">${t('Cancel')}</button>
+      <button class="pill primary focusable ${danger ? 'danger' : ''}" id="askOk">${esc(ok === 'OK' ? t('OK') : ok)}</button></div></form>`;
   return new Promise(resolve => {
     let result = null;
     d.onclose = () => { d.onclose = null; resolve(result); };
@@ -513,19 +646,19 @@ function openListPicker(meta, onChange) {
   d.onclose = () => { d.onclose = null; $('#listBtn')?.focus(); };
   const render = focusId => {
     const lists = library.lists().filter(l => l.id !== 'fav');
-    d.innerHTML = `<h2 style="margin-top:0">Add to list</h2>
+    d.innerHTML = `<h2 style="margin-top:0">${t('Add to list')}</h2>
       <p class="muted" style="margin-top:-.4rem">${esc(meta.name)}</p>
       <div class="pick">${lists.map(l => {
         const on = library.has(l.id, meta);
         return `<button class="opt focusable ${on ? 'active' : ''}" data-list="${esc(l.id)}" role="checkbox" aria-checked="${on}">
-          <span class="box">${on ? ICON.check : ''}</span><span class="t">${esc(l.name)}</span><span class="p">${l.items.length}</span></button>`;
+          <span class="box">${on ? ICON.check : ''}</span><span class="t">${esc(t(l.name))}</span><span class="p">${l.items.length}</span></button>`;
       }).join('')}</div>
-      <form class="pick-new" id="pickNew"><input id="pickName" class="focusable" maxlength="40" autocomplete="off" placeholder="New list name">
-        <button class="pill focusable">${ICON.plus}Create</button></form>
-      <div class="actions"><button class="pill primary focusable" id="pickDone">Done</button></div>`;
+      <form class="pick-new" id="pickNew"><input id="pickName" class="focusable" maxlength="40" autocomplete="off" placeholder="${esc(t('New list name'))}">
+        <button class="pill focusable">${ICON.plus}${t('Create')}</button></form>
+      <div class="actions"><button class="pill primary focusable" id="pickDone">${t('Done')}</button></div>`;
     d.querySelectorAll('[data-list]').forEach(b => b.onclick = () => {
       const on = library.toggle(b.dataset.list, meta);
-      toast(`${on ? 'Added to' : 'Removed from'} ${library.get(b.dataset.list).name}`, 1800);
+      toast(on ? t('Added to {name}', { name: library.get(b.dataset.list).name }) : t('Removed from {name}', { name: library.get(b.dataset.list).name }), 1800);
       onChange();
       render(b.dataset.list);
     });
@@ -535,7 +668,7 @@ function openListPicker(meta, onChange) {
       if (!name) return $('#pickName').focus();
       const l = library.create(name);
       library.toggle(l.id, meta);
-      toast(`Added to ${name}`, 1800);
+      toast(t('Added to {name}', { name }), 1800);
       onChange();
       render(l.id);
     };
@@ -552,11 +685,11 @@ function renderLibActions(meta) {
   if (!box) return;
   const fav = library.isFav(meta), lists = library.listsWith(meta);
   box.innerHTML = `
-    <button class="pill ghost lib-btn focusable ${fav ? 'on' : ''}" id="favBtn" aria-pressed="${fav}">${ICON.heart}<span>${fav ? 'Favorited' : 'Favorite'}</span></button>
-    <button class="pill ghost lib-btn focusable ${lists.length ? 'on' : ''}" id="listBtn">${ICON.bookmark}<span>${lists.length === 1 ? esc(lists[0].name) : lists.length ? `In ${lists.length} lists` : 'Add to list'}</span></button>`;
+    <button class="pill ghost lib-btn focusable ${fav ? 'on' : ''}" id="favBtn" aria-pressed="${fav}">${ICON.heart}<span>${fav ? t('Favorited') : t('Favorite')}</span></button>
+    <button class="pill ghost lib-btn focusable ${lists.length ? 'on' : ''}" id="listBtn">${ICON.bookmark}<span>${lists.length === 1 ? esc(lists[0].name) : lists.length ? t('In {count} lists', { count: lists.length }) : t('Add to list')}</span></button>`;
   $('#favBtn').onclick = () => {
     const on = library.toggle('fav', meta);
-    toast(on ? 'Added to Favorites' : 'Removed from Favorites', 1800);
+    toast(on ? t('Added to Favorites') : t('Removed from Favorites'), 1800);
     renderLibActions(meta);
     $('#favBtn').classList.add('just');
     $('#favBtn').focus();
@@ -616,7 +749,7 @@ async function detail(type, id, videoId) {
   if (!ready) setPage('detail', `<div class="detail"><section class="hero detail-hero"><div class="hero-info in"><div class="skeleton" style="height:3.5rem;width:22rem;max-width:80%"></div></div></section></div>`);
   let meta;
   try { meta = await metaP; }
-  catch (e) { setPage('detail', `<div class="page"><div class="error">Could not load title: ${esc(e.message)}</div></div>`); return; }
+  catch (e) { setPage('detail', `<div class="page"><div class="error">${t('Could not load title: {error}', { error: esc(e.message) })}</div></div>`); return; }
   if (location.hash.indexOf(`#/title/${type}/${encodeURIComponent(id)}`) !== 0) return; // navigated away meanwhile
 
   const saved = progress.get(meta.id);
@@ -632,18 +765,18 @@ async function detail(type, id, videoId) {
       </div>
     </section>
     <div class="detail-body ${type === 'series' ? 'split' : ''}">
-      ${type === 'series' ? '<div><h2>Episodes</h2><select class="season focusable" id="seasonSel"></select><div class="episodes" id="eps"></div></div>' : ''}
-      <div><h2 id="srcTitle">Sources</h2><div class="chips" id="qChips"></div><div class="sources" id="sources"></div></div>
+      ${type === 'series' ? `<div><h2>${t('Episodes')}</h2><select class="season focusable" id="seasonSel"></select><div class="episodes" id="eps"></div></div>` : ''}
+      <div><h2 id="srcTitle">${t('Sources')}</h2><div class="chips" id="qChips"></div><div class="sources" id="sources"></div></div>
     </div></div>`);
   renderLibActions(meta);
 
   if (type === 'movie') return loadSources(meta, null);
 
-  if (!meta.videos.length) { $('#sources').innerHTML = '<div class="empty">No episodes listed.</div>'; return; }
+  if (!meta.videos.length) { $('#sources').innerHTML = `<div class="empty">${t('No episodes listed.')}</div>`; return; }
   const seasons = [...new Set(meta.videos.map(v => v.season))];
   let current = meta.videos.find(v => v.id === videoId) || meta.videos.find(v => v.id === saved?.videoId) || meta.videos[0];
   const sel = $('#seasonSel');
-  sel.innerHTML = seasons.map(s => `<option value="${s}">Season ${s}</option>`).join('');
+  sel.innerHTML = seasons.map(s => `<option value="${s}">${t('Season {season}', { season: s })}</option>`).join('');
   sel.value = current.season;
 
   const renderEps = () => {
@@ -651,7 +784,7 @@ async function detail(type, id, videoId) {
     $('#eps').innerHTML = eps.map(v => `
       <button class="ep focusable ${v.id === current.id ? 'active' : ''}" data-id="${esc(v.id)}">
         <span class="ep-art">${v.thumbnail ? lazyImg(v.thumbnail) : ''}</span>
-        <div style="text-align:left"><div class="n">Episode ${v.episode}${v.released ? ' · ' + new Date(v.released).toLocaleDateString() : ''}</div><div>${esc(v.title || '')}</div></div>
+        <div style="text-align:start"><div class="n">${t('Episode {episode}', { episode: v.episode })}${v.released ? ' · ' + fmtDate(v.released, calendar) : ''}</div><div>${esc(v.title || '')}</div></div>
       </button>`).join('');
     $('#eps').querySelectorAll('.ep').forEach(b => b.onclick = () => {
       current = meta.videos.find(v => v.id === b.dataset.id);
@@ -672,27 +805,29 @@ async function loadSources(meta, video) {
   const box = $('#sources');
   const actions = $('#heroActions');
   const videoId = video ? video.id : meta.id;
-  const epLabel = video ? ` S${video.season} E${video.episode}` : '';
-  $('#srcTitle').textContent = video ? `Sources · S${video.season} E${video.episode}` : 'Sources';
+  $('#srcTitle').textContent = video ? t('Sources · S{season} E{episode}', { season: video.season, episode: video.episode }) : t('Sources');
   $('#qChips').innerHTML = '';
   box.innerHTML = Array.from({ length: 5 }, () => '<div class="skeleton" style="height:4.2rem"></div>').join('');
-  actions.innerHTML = `<button class="pill primary play-btn" disabled>Finding the best source…</button>`;
+  actions.innerHTML = `<button class="pill primary play-btn" disabled>${t('Finding the best source…')}</button>`;
   let list;
   try {
     list = await cachedJSON(streamsPath(meta.type, videoId), 5 * 60 * 1000);
   } catch (e) {
-    if (token === sourcesToken) { box.innerHTML = `<div class="error">Torrentio error: ${esc(e.message)}</div>`; actions.innerHTML = ''; }
+    if (token === sourcesToken) { box.innerHTML = `<div class="error">${t('Torrentio error: {error}', { error: esc(e.message) })}</div>`; actions.innerHTML = ''; }
     return;
   }
   if (token !== sourcesToken) return;
-  if (!list.length) { box.innerHTML = '<div class="empty">No sources found for this title.</div>'; actions.innerHTML = ''; return; }
+  if (!list.length) { box.innerHTML = `<div class="empty">${t('No sources found for this title.')}</div>`; actions.innerHTML = ''; return; }
 
   // One-click play: resume with the same source if there is saved progress for this video.
   const saved = progress.get(meta.id);
   const resume = saved?.videoId === videoId && saved.pos > 30 ? saved : null;
   const best = pickBest(list, { same: resume?.src });
   const facts = [qOf(best), best.size, best.infoHash ? `👤 ${best.seeders}` : '⚡ Debrid'].filter(Boolean).map(esc).join(' · ');
-  actions.innerHTML = `<button class="pill primary play-btn focusable" id="playBest">▶ ${resume ? `Resume${epLabel} · ${fmtTime(resume.pos)}` : `Play${epLabel}`}</button>
+  const playLabel = resume
+    ? (video ? t('Resume S{season} E{episode} · {time}', { season: video.season, episode: video.episode, time: fmtTime(resume.pos) }) : t('Resume · {time}', { time: fmtTime(resume.pos) }))
+    : (video ? t('Play S{season} E{episode}', { season: video.season, episode: video.episode }) : t('Play'));
+  actions.innerHTML = `<button class="pill primary play-btn focusable" id="playBest">▶ ${playLabel}</button>
     <span class="play-src">${facts}</span>`;
   $('#playBest').onclick = () => player.open({ meta, video, stream: best });
   // On a TV nothing is focused after navigation: start on the Play button.
@@ -707,17 +842,17 @@ async function loadSources(meta, video) {
       return `<button class="src focusable" data-i="${list.indexOf(s)}">
         <div class="q ${q === '4K' ? 'k4' : q === '1080p' ? 'p1080' : ''}">${q}</div>
         <div><div class="rel">${esc(s.release)}</div>
-          <div class="facts">${s === best ? '<span class="badge best">★ Best pick</span>' : ''}${s.size ? `<span>💾 ${esc(s.size)}</span>` : ''}${s.infoHash ? `<span class="seed">👤 ${s.seeders}</span>` : '<span class="seed">⚡ Debrid</span>'}
+          <div class="facts">${s === best ? `<span class="badge best">${t('★ Best pick')}</span>` : ''}${s.size ? `<span>💾 ${esc(s.size)}</span>` : ''}${s.infoHash ? `<span class="seed">👤 ${s.seeders}</span>` : '<span class="seed">⚡ Debrid</span>'}
             ${s.source ? `<span>${esc(s.source)}</span>` : ''}
-            ${FARSI_AUDIO.test(s.release + s.filename) ? '<span class="badge fa">Farsi audio</span>' : ''}
-            ${isHardCodec(s) && !canPlayHardCodecs() ? '<span class="badge" title="Browsers usually cannot decode this codec. Install ffmpeg on the server.">may not play</span>' : ''}
+            ${FARSI_AUDIO.test(s.release + s.filename) ? `<span class="badge fa">${t('Farsi audio')}</span>` : ''}
+            ${isHardCodec(s) && !canPlayHardCodecs() ? `<span class="badge" title="${esc(t('Browsers usually cannot decode this codec. Install ffmpeg on the server.'))}">${t('may not play')}</span>` : ''}
           </div></div>
         <div class="muted">▶</div>
       </button>`;
-    }).join('') || '<div class="empty">No sources in this quality.</div>';
+    }).join('') || `<div class="empty">${t('No sources in this quality.')}</div>`;
     box.querySelectorAll('.src').forEach(b => b.onclick = () => player.open({ meta, video, stream: list[b.dataset.i] }));
   };
-  $('#qChips').innerHTML = qualities.map(q => `<button class="chip focusable ${q === filter ? 'active' : ''}" data-q="${q}">${q}</button>`).join('');
+  $('#qChips').innerHTML = qualities.map(q => `<button class="chip focusable ${q === filter ? 'active' : ''}" data-q="${q}">${q === 'All' ? t('All') : q}</button>`).join('');
   $('#qChips').querySelectorAll('.chip').forEach(c => c.onclick = () => {
     filter = c.dataset.q;
     $('#qChips').querySelectorAll('.chip').forEach(x => x.classList.toggle('active', x === c));
@@ -747,7 +882,7 @@ const player = (() => {
     loading.hidden = false;
     loading.style.pointerEvents = 'auto';
     loading.innerHTML = `<div class="error" style="font-size:1.1rem">${esc(msg)}</div>
-      <button class="pill primary focusable" id="errBack">Choose another source</button>`;
+      <button class="pill primary focusable" id="errBack">${t('Choose another source')}</button>`;
     $('#errBack').onclick = close;
     $('#errBack').focus();
   }
@@ -781,19 +916,19 @@ const player = (() => {
     if (isCompat() || !serverConfig.ffmpeg) return false;
     const at = now();
     st.mode = 'compat';
-    toast(reason || 'Using compatibility mode (ffmpeg)');
-    showLoading('Converting video for this device…');
+    toast(reason || t('Using compatibility mode (ffmpeg)'));
+    showLoading(t('Converting video for this device…'));
     setSource(at);
     return true;
   }
 
-  function seekTo(t) {
-    t = Math.max(0, Math.min(t, (total() || Infinity) - 1));
+  function seekTo(sec) {
+    sec = Math.max(0, Math.min(sec, (total() || Infinity) - 1));
     if (isCompat()) {
-      const rel = t - st.offset;
+      const rel = sec - st.offset;
       const buffered = [...Array(video.buffered.length).keys()].some(i => rel >= video.buffered.start(i) && rel <= video.buffered.end(i));
-      if (buffered) video.currentTime = rel; else { showLoading('Seeking…'); setSource(t); }
-    } else video.currentTime = t;
+      if (buffered) video.currentTime = rel; else { showLoading(t('Seeking…')); setSource(sec); }
+    } else video.currentTime = sec;
     wake();
   }
 
@@ -826,7 +961,7 @@ const player = (() => {
     document.body.style.overflow = 'hidden';
     history.pushState({ player: true }, '', location.hash);
     resetLoading();
-    showLoading(stream.infoHash ? 'Connecting to peers…' : 'Loading…');
+    showLoading(stream.infoHash ? t('Connecting to peers…') : t('Loading…'));
     wake();
     $('#pPlay').focus();
     // Fire-and-forget: on some platforms this promise never settles without a user gesture.
@@ -839,7 +974,7 @@ const player = (() => {
 
     const session = st;
     if (serverConfig.ffmpeg) {
-      showLoading(stream.infoHash ? 'Connecting to peers & reading file info…' : 'Reading file info…');
+      showLoading(stream.infoHash ? t('Connecting to peers & reading file info…') : t('Reading file info…'));
       try {
         st.probe = await getJSON(`/api/probe?${srcQuery}`);
       } catch { /* fall back to direct play */ }
@@ -847,7 +982,7 @@ const player = (() => {
       if (st.probe && !st.probe.browserSafe) st.mode = 'compat';
       renderAudioButton();
     }
-    if (resumeAt) toast(`Resuming from ${fmtTime(resumeAt)}`);
+    if (resumeAt) toast(t('Resuming from {time}', { time: fmtTime(resumeAt) }));
     setSource(resumeAt || 0);
   }
 
@@ -856,9 +991,9 @@ const player = (() => {
       try {
         const s = await getJSON(`/api/status/${hash}`);
         if (s.state === 'idle') return;
-        const txt = `👤 ${s.peers} peers · ⬇ ${fmtSpeed(s.downloadSpeed)}`;
+        const txt = `👤 ${lang === 'fa' ? faDigits(s.peers) : s.peers} ${t('peers')} · ⬇ ${fmtSpeed(s.downloadSpeed)}`;
         $('#pStats').textContent = txt;
-        if (!loading.hidden && $('#loadingText')) $('#loadingText').textContent = (s.state === 'ready' ? 'Buffering…' : 'Connecting to peers…') + '\n' + txt;
+        if (!loading.hidden && $('#loadingText')) $('#loadingText').textContent = (s.state === 'ready' ? t('Buffering…') : t('Connecting to peers…')) + '\n' + txt;
       } catch { /* server busy */ }
     };
     tick();
@@ -890,7 +1025,7 @@ const player = (() => {
       st.subErrors = res.errors;
       const first = st.subs.find(s => s.lang === 'fa');
       if (settings.autoSub && first) selectSub(first.ref, true);
-      else if (!first && settings.subLangs.includes('fa')) toast('No Farsi subtitles found for this title');
+      else if (!first && settings.subLangs.includes('fa')) toast(t('No Farsi subtitles found for this title'));
     } catch (e) {
       if (st === session) { st.subs = []; st.subErrors = [e.message]; }
     }
@@ -908,9 +1043,9 @@ const player = (() => {
       if (st !== session || st.subRef !== ref) return;
       st.cues = cues;
       const s = st.subs?.find(x => x.ref === ref);
-      if (s) toast(`${auto ? 'Subtitle: ' : ''}${s.provider} · ${s.label}`.slice(0, 120));
+      if (s) toast(`${auto ? t('Subtitle: ') : ''}${s.provider} · ${s.label}`.slice(0, 120));
     } catch (e) {
-      toast('Subtitle failed: ' + e.message);
+      toast(t('Subtitle failed: {error}', { error: e.message }));
       if (st === session) st.subRef = null;
     }
     refreshPanel();
@@ -920,10 +1055,10 @@ const player = (() => {
     const buf = await file.arrayBuffer();
     const r = await fetch(api(`/api/parse?lang=${(settings.subLangs || 'fa').split(',')[0]}`), { method: 'POST', body: buf, headers: { 'Content-Type': 'application/octet-stream' } });
     const j = await r.json();
-    if (!r.ok) return toast(j.error || 'Could not read file');
+    if (!r.ok) return toast(j.error || t('Could not read file'));
     st.subRef = 'local';
     st.cues = j.cues;
-    toast(`Loaded ${file.name}`);
+    toast(t('Loaded {name}', { name: file.name }));
     refreshPanel();
   }
 
@@ -966,21 +1101,21 @@ const player = (() => {
     const list = st.subs;
     const LANG = { fa: 'فارسی', en: 'English', ar: 'العربية', tr: 'Türkçe' };
     panel.innerHTML = `
-      <h3>Subtitles</h3>
-      <div class="opt-row"><span class="muted">Sync</span>
+      <h3>${t('Subtitles')}</h3>
+      <div class="opt-row"><span class="muted">${t('Sync')}</span>
         <button class="pill focusable" data-act="d-">−0.5s</button><span class="val">${st.delay > 0 ? '+' : ''}${st.delay.toFixed(1)}s</span><button class="pill focusable" data-act="d+">+0.5s</button>
-        <span class="muted" style="margin-left:.6rem">Size</span>
+        <span class="muted" style="margin-left:.6rem">${t('Size')}</span>
         <button class="pill focusable" data-act="s-">A−</button><button class="pill focusable" data-act="s+">A+</button>
       </div>
-      <button class="opt focusable ${!st.subRef ? 'active' : ''}" data-ref="">Off</button>
-      ${st.subRef === 'local' ? '<button class="opt focusable active" data-ref="local"><div class="t">Local file</div></button>' : ''}
-      ${list == null ? '<div class="empty"><div class="spinner" style="margin:auto"></div>Searching subtitles…</div>'
+      <button class="opt focusable ${!st.subRef ? 'active' : ''}" data-ref="">${t('Off')}</button>
+      ${st.subRef === 'local' ? `<button class="opt focusable active" data-ref="local"><div class="t">${t('Local file')}</div></button>` : ''}
+      ${list == null ? `<div class="empty"><div class="spinner" style="margin:auto"></div>${t('Searching subtitles…')}</div>`
         : list.length ? list.map(s => `<button class="opt focusable ${s.ref === st.subRef ? 'active' : ''}" data-ref="${s.ref}">
-            <div class="t" dir="auto">${esc(s.label)}</div><div class="p">${s.match >= MATCH ? '<b class="match">✓ Matches this video</b> · ' : ''}${esc(LANG[s.lang] || s.lang)} · ${esc(s.provider)}${s.downloads ? ' · ⬇ ' + s.downloads : ''}${s.author ? ' · ' + esc(s.author) : ''}</div></button>`).join('')
-        : '<div class="empty">No subtitles found.</div>'}
+            <div class="t" dir="auto">${esc(s.label)}</div><div class="p">${s.match >= MATCH ? `<b class="match">${t('✓ Matches this video')}</b> · ` : ''}${esc(LANG[s.lang] || s.lang)} · ${esc(s.provider)}${s.downloads ? ' · ⬇ ' + s.downloads : ''}${s.author ? ' · ' + esc(s.author) : ''}</div></button>`).join('')
+        : `<div class="empty">${t('No subtitles found.')}</div>`}
       ${st.subErrors?.length ? `<p class="muted" style="font-size:.75rem">${st.subErrors.map(esc).join('<br>')}</p>` : ''}
-      ${!settings.subdlKey ? '<p class="muted" style="font-size:.8rem">Tip: add a free SubDL API key in Settings for many more Farsi subtitles.</p>' : ''}
-      <label class="pill focusable" style="display:inline-block;margin-top:.6rem" tabindex="0">Load from file…<input type="file" accept=".srt,.vtt,.ass,.ssa,.zip" hidden id="subFile"></label>`;
+      ${!settings.subdlKey ? `<p class="muted" style="font-size:.8rem">${t('Tip: add a free SubDL API key in Settings for many more Farsi subtitles.')}</p>` : ''}
+      <label class="pill focusable" style="display:inline-block;margin-top:.6rem" tabindex="0">${t('Load from file…')}<input type="file" accept=".srt,.vtt,.ass,.ssa,.zip" hidden id="subFile"></label>`;
     panel.hidden = false;
     panel.querySelectorAll('.opt').forEach(b => b.onclick = () => selectSub(b.dataset.ref || null));
     panel.querySelectorAll('[data-act]').forEach(b => b.onclick = () => {
@@ -1001,11 +1136,11 @@ const player = (() => {
   function openAudioPanel(keepFocus) {
     panel.dataset.kind = 'audio';
     const tracks = st.probe?.audio || [];
-    panel.innerHTML = `<h3>Audio</h3>` + tracks.map(a => `
+    panel.innerHTML = `<h3>${t('Audio')}</h3>` + tracks.map(a => `
       <button class="opt focusable ${a.index === st.audio ? 'active' : ''}" data-a="${a.index}">
-        <div class="t">${esc(a.title || a.lang || 'Track ' + (a.index + 1))}</div>
+        <div class="t">${esc(a.title || a.lang || t('Track {n}', { n: a.index + 1 }))}</div>
         <div class="p">${esc([a.lang, a.codec, a.channels && a.channels + 'ch'].filter(Boolean).join(' · '))}</div></button>`).join('') +
-      (!serverConfig.ffmpeg ? '<p class="muted">Switching audio tracks needs ffmpeg on the server.</p>' : '');
+      (!serverConfig.ffmpeg ? `<p class="muted">${t('Switching audio tracks needs ffmpeg on the server.')}</p>` : '');
     panel.hidden = false;
     panel.querySelectorAll('.opt').forEach(b => b.onclick = () => {
       const idx = Number(b.dataset.a);
@@ -1013,7 +1148,7 @@ const player = (() => {
       const at = now();
       st.audio = idx;
       st.mode = 'compat';
-      showLoading('Switching audio…');
+      showLoading(t('Switching audio…'));
       setSource(at);
       openAudioPanel();
     });
@@ -1032,12 +1167,14 @@ const player = (() => {
   function saveProgress(pos = now(), dur = total()) {
     if (!st || !dur || pos < 5) return;
     const { meta, ep, stream } = st;
-    progress.save({
+    const entry = {
       ...brief(meta),
       videoId: st.videoId, season: ep?.season, episode: ep?.episode, pos, dur,
       // Resume uses the same source (same file, so the position and the subtitle sync still fit).
       src: stream.infoHash ? { infoHash: stream.infoHash, fileIdx: stream.fileIdx ?? null } : { url: stream.url },
-    });
+    };
+    progress.save(entry);
+    watchHistory.record({ ...entry, epTitle: ep?.title });
   }
 
   // -------- Android: playback goes to the native ExoPlayer, which decodes every common
@@ -1045,7 +1182,7 @@ const player = (() => {
   async function openNative(resumeAt) {
     const session = st;
     const abs = u => new URL(u, location.href).href;
-    toast('Opening player…');
+    toast(t('Opening player…'));
     let list = [];
     try {
       const res = await Promise.race([
@@ -1058,6 +1195,7 @@ const player = (() => {
     const { meta, ep, stream } = st;
     // The native player draws these subtitles itself (so it can shift them for sync).
     window.CineMoyAndroid.play(JSON.stringify({
+      labels: Object.fromEntries(NATIVE_TEXT.map(text => [text, t(text)])),
       url: abs(st.directUrl),
       title: meta.name,
       subtitle: ep ? `S${ep.season} · E${ep.episode}${ep.title ? ' · ' + ep.title : ''}` : String(meta.year || ''),
@@ -1075,7 +1213,7 @@ const player = (() => {
   window.__cmNativeClosed = (posMs, durMs, ended) => {
     if (!st) return;
     saveProgress(posMs / 1000, durMs / 1000);
-    if (ended && nextEpisode()) { toast('Playing next episode…'); playNext(); }
+    if (ended && nextEpisode()) { toast(t('Playing next episode…')); playNext(); }
     else st = null;
   };
 
@@ -1089,11 +1227,11 @@ const player = (() => {
     const next = nextEpisode();
     if (!next) return;
     const { meta, stream } = st;
-    showLoading(`Finding S${next.season}E${next.episode}…`);
+    showLoading(t('Finding S{season}E{episode}…', { season: next.season, episode: next.episode }));
     try {
       const list = await cachedJSON(streamsPath('series', next.id), 5 * 60 * 1000);
       const pick = pickBest(list, { bingeGroup: stream.bingeGroup });
-      if (!pick) throw new Error('No sources for next episode');
+      if (!pick) throw new Error(t('No sources for next episode'));
       open({ meta, video: next, stream: pick, resumeAt: 0 });
     } catch (e) {
       close();
@@ -1140,7 +1278,7 @@ const player = (() => {
     if (holdTimer || bufferedAhead() >= Math.min(REBUFFER_S, left - 1)) return false;
     const since = Date.now();
     video.pause();
-    showLoading('Buffering…');
+    showLoading(t('Buffering…'));
     holdTimer = setInterval(() => {
       if (!st || video.ended) return releaseHold(false);
       if (bufferedAhead() >= Math.min(REBUFFER_S, left - 1) || Date.now() - since > REBUFFER_MAX_MS) releaseHold(true);
@@ -1154,7 +1292,7 @@ const player = (() => {
   }
 
   // -------- video events
-  video.addEventListener('waiting', () => { stalled = true; showLoading('Buffering…'); });
+  video.addEventListener('waiting', () => { stalled = true; showLoading(t('Buffering…')); });
   video.addEventListener('emptied', () => { stalled = true; releaseHold(false); });
   video.addEventListener('playing', () => {
     if (holdTimer) releaseHold(false); // the viewer pressed play during the hold
@@ -1166,18 +1304,18 @@ const player = (() => {
   video.addEventListener('pause', () => { $('#pPlay').textContent = '▶'; wake(); });
   video.addEventListener('loadedmetadata', () => {
     // Audio plays but the video track can't be decoded (typically HEVC) → convert.
-    if (st && !isCompat() && video.videoWidth === 0 && !switchToCompat('Video codec not supported here, converting with ffmpeg…') && !serverConfig.ffmpeg) {
-      toast('This video codec is not supported by this device. Try an x264 source or install ffmpeg on the server.', 7000);
+    if (st && !isCompat() && video.videoWidth === 0 && !switchToCompat(t('Video codec not supported here, converting with ffmpeg…')) && !serverConfig.ffmpeg) {
+      toast(t('This video codec is not supported by this device. Try an x264 source or install ffmpeg on the server.'), 7000);
     }
   });
   video.addEventListener('error', () => {
     if (!st || !video.getAttribute('src')) return;
-    if (switchToCompat('Format not supported directly, converting with ffmpeg…')) return;
+    if (switchToCompat(t('Format not supported directly, converting with ffmpeg…'))) return;
     showError(isCompat()
-      ? 'Playback failed. The torrent may have too few peers. Try another source.'
-      : 'This device cannot play this file format. Pick an MP4/x264 source, or install ffmpeg on the server to enable compatibility mode.');
+      ? t('Playback failed. The torrent may have too few peers. Try another source.')
+      : t('This device cannot play this file format. Pick an MP4/x264 source, or install ffmpeg on the server to enable compatibility mode.'));
   });
-  video.addEventListener('ended', () => { if (nextEpisode()) { toast('Playing next episode…'); playNext(); } else close(); });
+  video.addEventListener('ended', () => { if (nextEpisode()) { toast(t('Playing next episode…')); playNext(); } else close(); });
 
   // -------- controls
   const togglePlay = () => (video.paused ? video.play() : video.pause());
@@ -1222,47 +1360,48 @@ const player = (() => {
 // ---------------------------------------------------------------- settings
 async function openSettings() {
   const d = $('#settings');
-  const langOpts = [['fa', 'Farsi only'], ['fa,en', 'Farsi + English'], ['en', 'English only'], ['fa,en,ar,tr', 'Farsi, English, Arabic, Turkish']];
-  const qualityOpts = [['1080p', '1080p (recommended)'], ['4K', '4K when available'], ['720p', '720p (slow connections)']];
+  const langOpts = [['fa', t('Farsi only')], ['fa,en', t('Farsi + English')], ['en', t('English only')], ['fa,en,ar,tr', t('Farsi, English, Arabic, Turkish')]];
+  const qualityOpts = [['1080p', t('1080p (recommended)')], ['4K', t('4K when available')], ['720p', t('720p (slow connections)')]];
   const desktop = window.CineMoyDesktop ? await window.CineMoyDesktop.info().catch(() => null) : null;
   d.innerHTML = `
-    <h2 style="margin-top:0">Settings</h2>
-    <label for="sQuality">Quality for the Play button</label>
+    <h2 style="margin-top:0">${t('Settings')}</h2>
+    <label for="sUiLang">${t('Language')}</label>
+    <select id="sUiLang" class="focusable">${LANGUAGES.map(([v, label]) => `<option value="${v}" ${v === lang ? 'selected' : ''}>${label}</option>`).join('')}</select>
+    <label for="sQuality">${t('Quality for the Play button')}</label>
     <select id="sQuality" class="focusable">${qualityOpts.map(([v, l]) => `<option value="${v}" ${v === settings.quality ? 'selected' : ''}>${l}</option>`).join('')}</select>
-    <div class="hint">Play picks a well-seeded source in this quality that plays on this device. You can still choose any source from the list.</div>
+    <div class="hint">${t('Play picks a well-seeded source in this quality that plays on this device. You can still choose any source from the list.')}</div>
 
-    <label for="sTorrentio">Torrentio addon URL</label>
+    <label for="sTorrentio">${t('Torrentio addon URL')}</label>
     <input id="sTorrentio" class="focusable" placeholder="${esc(serverConfig.defaults.torrentio || 'https://torrentio.strem.fun')}" value="${esc(settings.torrentio)}">
-    <div class="hint">Leave empty for the default. To filter qualities or use Real-Debrid / AllDebrid / Premiumize, open
-      <a href="https://torrentio.strem.fun/configure" target="_blank" rel="noopener">torrentio.strem.fun/configure</a>, then copy the install link (stremio://… or https://…/manifest.json) here.</div>
+    <div class="hint">${t('Leave empty for the default. To filter qualities or use Real-Debrid / AllDebrid / Premiumize, open <a href="https://torrentio.strem.fun/configure" target="_blank" rel="noopener">torrentio.strem.fun/configure</a>, then copy the install link (stremio://… or https://…/manifest.json) here.')}</div>
 
-    <label for="sSubdl">SubDL API key</label>
-    <input id="sSubdl" class="focusable" value="${esc(settings.subdlKey)}" placeholder="Optional, but strongly recommended for Farsi">
-    <div class="hint">Free at <a href="https://subdl.com/panel/api" target="_blank" rel="noopener">subdl.com/panel/api</a>. SubDL has the largest collection of Farsi subtitles (it hosts the old Subscene archive). OpenSubtitles is always searched without a key.</div>
+    <label for="sSubdl">${t('SubDL API key')}</label>
+    <input id="sSubdl" class="focusable" value="${esc(settings.subdlKey)}" placeholder="${esc(t('Optional, but strongly recommended for Farsi'))}">
+    <div class="hint">${t('Free at <a href="https://subdl.com/panel/api" target="_blank" rel="noopener">subdl.com/panel/api</a>. SubDL has the largest collection of Farsi subtitles (it hosts the old Subscene archive). OpenSubtitles is always searched without a key.')}</div>
 
-    <label for="sLangs">Subtitle languages</label>
+    <label for="sLangs">${t('Subtitle languages')}</label>
     <select id="sLangs" class="focusable">${langOpts.map(([v, l]) => `<option value="${v}" ${v === settings.subLangs ? 'selected' : ''}>${l}</option>`).join('')}</select>
 
-    <label style="display:flex;gap:.6rem;align-items:center"><input type="checkbox" id="sAuto" class="focusable" style="width:auto" ${settings.autoSub ? 'checked' : ''}> Automatically turn on the best Farsi subtitle</label>
+    <label style="display:flex;gap:.6rem;align-items:center"><input type="checkbox" id="sAuto" class="focusable" style="width:auto" ${settings.autoSub ? 'checked' : ''}> ${t('Automatically turn on the best Farsi subtitle')}</label>
 
-    <label for="sAddons">Extra Stremio subtitle addons</label>
+    <label for="sAddons">${t('Extra Stremio subtitle addons')}</label>
     <input id="sAddons" class="focusable" value="${esc(settings.subAddons)}" placeholder="https://example-addon/manifest.json, …">
-    <div class="hint">Comma-separated. Any Stremio subtitles addon works here.</div>
+    <div class="hint">${t('Comma-separated. Any Stremio subtitles addon works here.')}</div>
 
     ${desktop ? `
-    <label style="display:flex;gap:.6rem;align-items:center"><input type="checkbox" id="sLan" class="focusable" style="width:auto" ${desktop.lanSharing ? 'checked' : ''}> Share with TVs and phones on my network</label>
-    <div class="hint">Lets devices on your Wi-Fi use this PC to stream. Off by default, so nobody else on your network can use it. Changing this restarts CineMoy.
-      ${desktop.lanSharing && desktop.addresses.length ? `<br>Open on your TV: <b>${desktop.addresses.map(esc).join('</b> or <b>')}</b>` : ''}</div>` : ''}
+    <label style="display:flex;gap:.6rem;align-items:center"><input type="checkbox" id="sLan" class="focusable" style="width:auto" ${desktop.lanSharing ? 'checked' : ''}> ${t('Share with TVs and phones on my network')}</label>
+    <div class="hint">${t('Lets devices on your Wi-Fi use this PC to stream. Off by default, so nobody else on your network can use it. Changing this restarts CineMoy.')}
+      ${desktop.lanSharing && desktop.addresses.length ? `<br>${t('Open on your TV: <b>{addresses}</b>', { addresses: desktop.addresses.map(esc).join(`</b> ${t('or')} <b>`) })}` : ''}</div>` : ''}
 
-    <label for="sApi">Server address (advanced)</label>
-    <input id="sApi" class="focusable" value="${esc(settings.apiBase)}" placeholder="Same as this page">
-    <div class="hint">Only needed when this UI is installed as a separate TV app. Example: http://192.168.1.20:7070.
-      Server ffmpeg: <b>${serverConfig.ffmpeg ? 'found ✓' : 'not installed'}</b>.</div>
+    <label for="sApi">${t('Server address (advanced)')}</label>
+    <input id="sApi" class="focusable" value="${esc(settings.apiBase)}" placeholder="${esc(t('Same as this page'))}">
+    <div class="hint">${t('Only needed when this UI is installed as a separate TV app. Example: http://192.168.1.20:7070.')}<br>
+      ${t('Server ffmpeg: <b>{status}</b>', { status: serverConfig.ffmpeg ? t('found ✓') : t('not installed') })}.</div>
 
     <div class="about">CineMoy ${esc(serverConfig.version || '')}
-      ${updatePlatform() ? '<button class="pill focusable" id="sUpdate">Check for updates</button>' : ''}</div>
+      ${updatePlatform() ? `<button class="pill focusable" id="sUpdate">${t('Check for updates')}</button>` : ''}</div>
 
-    <div class="actions"><button class="pill focusable" id="sCancel">Cancel</button><button class="pill primary focusable" id="sSave">Save</button></div>`;
+    <div class="actions"><button class="pill focusable" id="sCancel">${t('Cancel')}</button><button class="pill primary focusable" id="sSave">${t('Save')}</button></div>`;
   d.showModal();
   $('#sQuality').focus();
   $('#sCancel').onclick = () => d.close();
@@ -1282,11 +1421,12 @@ async function openSettings() {
     jsonCache.clear(); // the server or Torrentio address may have changed
     d.close();
     if (desktop && $('#sLan').checked !== desktop.lanSharing) {
-      toast('Restarting CineMoy…');
+      toast(t('Restarting CineMoy…'));
       return window.CineMoyDesktop.setLanSharing($('#sLan').checked);
     }
+    if ($('#sUiLang').value !== lang) return setLanguage($('#sUiLang').value);
     await loadServerConfig();
-    toast('Settings saved');
+    toast(t('Settings saved'));
     router();
   };
 }
@@ -1311,12 +1451,12 @@ async function checkForUpdate(manual = false) {
     if (!r.ok) throw new Error(r.status === 404 ? 'no release published yet' : `HTTP ${r.status}`);
     const rel = await r.json();
     const latest = String(rel.tag_name || '').replace(/^v/i, '');
-    if (!isNewer(latest, serverConfig.version)) { if (manual) toast(`You have the latest version (${serverConfig.version}).`); return; }
+    if (!isNewer(latest, serverConfig.version)) { if (manual) toast(t('You have the latest version ({version}).', { version: serverConfig.version })); return; }
     if (!manual && store.get('updateSkipped') === latest) return;
     const asset = await pickAsset(platform, rel.assets || []);
     showUpdate(rel, latest, asset);
   } catch (e) {
-    if (manual) toast('Could not check for updates: ' + e.message);
+    if (manual) toast(t('Could not check for updates: {error}', { error: e.message }));
   }
 }
 
@@ -1339,13 +1479,13 @@ function showUpdate(rel, latest, asset) {
   const d = $('#update');
   const android = updatePlatform() === 'android';
   d.innerHTML = `
-    <h2 style="margin-top:0">CineMoy ${esc(latest)} is available</h2>
-    <p class="muted">You have version ${esc(serverConfig.version)}.</p>
+    <h2 style="margin-top:0">${t('CineMoy {version} is available', { version: esc(latest) })}</h2>
+    <p class="muted">${t('You have version {version}.', { version: esc(serverConfig.version) })}</p>
     ${rel.body ? `<div class="notes">${esc(rel.body.slice(0, 4000))}</div>` : ''}
     <div class="actions">
-      <button class="pill focusable" id="uSkip">Skip this version</button>
-      <button class="pill focusable" id="uLater">Later</button>
-      <button class="pill primary focusable" id="uGo">${asset ? (android ? 'Download & install' : 'Download') : 'Open release page'}</button>
+      <button class="pill focusable" id="uSkip">${t('Skip this version')}</button>
+      <button class="pill focusable" id="uLater">${t('Later')}</button>
+      <button class="pill primary focusable" id="uGo">${asset ? (android ? t('Download & install') : t('Download')) : t('Open release page')}</button>
     </div>`;
   d.showModal();
   $('#uGo').focus();
@@ -1355,15 +1495,15 @@ function showUpdate(rel, latest, asset) {
     if (!asset) { window.open(rel.html_url, '_blank'); return d.close(); }
     if (!android) {
       window.open(asset.browser_download_url, '_blank'); // opens in the default browser
-      toast('Downloading in your browser. Run the file to update CineMoy.', 8000);
+      toast(t('Downloading in your browser. Run the file to update CineMoy.'), 8000);
       return d.close();
     }
     const btn = $('#uGo');
     btn.disabled = true;
-    btn.textContent = 'Downloading…';
-    window.__cmUpdateProgress = pct => { btn.textContent = `Downloading… ${pct}%`; };
+    btn.textContent = t('Downloading…');
+    window.__cmUpdateProgress = pct => { btn.textContent = t('Downloading… {pct}%', { pct: lang === 'fa' ? faDigits(pct) : pct }); };
     window.__cmUpdateDone = () => d.close(); // Android's installer takes over
-    window.__cmUpdateError = msg => { btn.disabled = false; btn.textContent = 'Try again'; toast('Update failed: ' + msg, 6000); };
+    window.__cmUpdateError = msg => { btn.disabled = false; btn.textContent = t('Try again'); toast(t('Update failed: {error}', { error: msg }), 6000); };
     window.CineMoyAndroid.installUpdate(asset.browser_download_url);
   };
 }
@@ -1500,6 +1640,7 @@ function router() {
   if (document.activeElement !== $('#searchInput')) $('#searchInput').value = '';
   if ((m = h.match(/^#\/browse\/(movie|series)\/(top|year)\/([^/]*)$/))) return browse(m[1], m[2], decodeURIComponent(m[3]));
   if ((m = h.match(/^#\/library(?:\/([^/]+))?$/))) return libraryPage(m[1] && decodeURIComponent(m[1]));
+  if (h === '#/profile') return profilePage();
   if (h === '#/movies') return shelves('movie');
   if (h === '#/series') return shelves('series');
   return shelves('home');
@@ -1513,9 +1654,10 @@ addEventListener('hashchange', e => {
 
 async function loadServerConfig() {
   try { serverConfig = await getJSON('/api/config'); }
-  catch { toast('Cannot reach the CineMoy server. Check "Server address" in Settings.', 8000); }
+  catch { toast(t('Cannot reach the CineMoy server. Check "Server address" in Settings.'), 8000); }
 }
 
+translateDom();
 await loadServerConfig();
 router();
 setTimeout(checkForUpdate, 4000);

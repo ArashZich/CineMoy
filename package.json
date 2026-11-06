@@ -11,6 +11,7 @@
   "main": "electron/main.cjs",
   "scripts": {
     "start": "node server/index.js",
+    "test": "node --test \"test/*.test.mjs\"",
     "desktop": "electron .",
     "build:win": "electron-builder --win portable nsis",
     "bundle:android": "node scripts/bundle-server.mjs",

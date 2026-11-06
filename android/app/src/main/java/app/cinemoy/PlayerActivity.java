@@ -71,8 +71,14 @@ public class PlayerActivity extends Activity {
     public static final String EXTRA_ENDED = "ended";
 
     private static final float SYNC_STEP = 0.5f;
+    // The web UI sends its text in the chosen language, keyed by the English text.
+    private JSONObject uiText = new JSONObject();
     // Left-to-right mark: keeps "فارسی · Provider · release" in reading order in menus.
     private static final String LTR = "‎";
+
+    private String l(String english) {
+        return uiText.optString(english, english);
+    }
 
     private ExoPlayer player;
     private PlayerView view;
@@ -117,6 +123,8 @@ public class PlayerActivity extends Activity {
             finish();
             return;
         }
+        JSONObject sent = req.optJSONObject("labels");
+        if (sent != null) uiText = sent;
         String title = req.optString("title");
         String subtitle = req.optString("subtitle");
         titleView.setText(subtitle.isEmpty() ? title : title + "\n" + subtitle);
@@ -245,7 +253,7 @@ public class PlayerActivity extends Activity {
         List<Runnable> actions = new ArrayList<>();
         int checked = 0;
 
-        labels.add("Off");
+        labels.add(l("Off"));
         actions.add(() -> {
             selectOnline(-1, false);
             setEmbeddedText(null, -1);
@@ -264,7 +272,7 @@ public class PlayerActivity extends Activity {
                 final int track = i;
                 if (selectedOnline < 0 && g.isTrackSelected(i)) checked = labels.size();
                 String name = f.label != null ? f.label : languageName(f.language == null ? "" : f.language);
-                labels.add(LTR + "In video · " + (name.isEmpty() ? "Track " + (i + 1) : name));
+                labels.add(LTR + l("In video") + " · " + (name.isEmpty() ? l("Track") + " " + (i + 1) : name));
                 actions.add(() -> {
                     selectOnline(-1, false);
                     setEmbeddedText(g, track);
@@ -272,16 +280,16 @@ public class PlayerActivity extends Activity {
             }
         }
         if (labels.size() == 1) {
-            Toast.makeText(this, "No subtitles found for this video", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, l("No subtitles found for this video"), Toast.LENGTH_LONG).show();
             return;
         }
         new AlertDialog.Builder(this)
-                .setTitle("Subtitles")
+                .setTitle(l("Subtitles"))
                 .setSingleChoiceItems(labels.toArray(new String[0]), checked, (d, which) -> {
                     actions.get(which).run();
                     d.dismiss();
                 })
-                .setNeutralButton("Sync…", (d, w) -> showSyncDialog())
+                .setNeutralButton(l("Sync…"), (d, w) -> showSyncDialog())
                 .show();
     }
 
@@ -324,13 +332,13 @@ public class PlayerActivity extends Activity {
                     cueText = t;
                     shownKey = "";
                     String name = sub.label.length() > 70 ? sub.label.substring(0, 70) + "…" : sub.label;
-                    Toast.makeText(this, (auto ? "Subtitle: " : "") + name, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, (auto ? l("Subtitle: ") : "") + name, Toast.LENGTH_SHORT).show();
                 });
             } catch (Exception ex) {
                 handler.post(() -> {
                     if (token != loadToken) return;
                     selectedOnline = -1;
-                    Toast.makeText(this, "Subtitle failed to load", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, l("Subtitle failed to load"), Toast.LENGTH_LONG).show();
                 });
             }
         });
@@ -370,7 +378,7 @@ public class PlayerActivity extends Activity {
 
     private void showSyncDialog() {
         if (selectedOnline < 0) {
-            Toast.makeText(this, "Sync works with the online subtitles. Choose one in Subtitles first.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, l("Sync works with the online subtitles. Choose one in Subtitles first."), Toast.LENGTH_LONG).show();
             return;
         }
         float pad = getResources().getDisplayMetrics().density;
@@ -381,8 +389,8 @@ public class PlayerActivity extends Activity {
         Button earlier = new Button(this);
         Button later = new Button(this);
         TextView value = new TextView(this);
-        earlier.setText("− 0.5s  earlier");
-        later.setText("later  + 0.5s");
+        earlier.setText(l("− 0.5s  earlier"));
+        later.setText(l("later  + 0.5s"));
         earlier.setAllCaps(false);
         later.setAllCaps(false);
         value.setTextSize(20);
@@ -396,10 +404,10 @@ public class PlayerActivity extends Activity {
         row.addView(value);
         row.addView(later);
         AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("Subtitle sync")
-                .setMessage("If the text comes before the voices, press “later”. If it comes after, press “earlier”.")
+                .setTitle(l("Subtitle sync"))
+                .setMessage(l("If the text comes before the voices, press “later”. If it comes after, press “earlier”."))
                 .setView(row)
-                .setPositiveButton("Done", null)
+                .setPositiveButton(l("Done"), null)
                 .setNeutralButton("Reset", null)
                 .create();
         dialog.setOnShowListener(d -> {
@@ -454,11 +462,11 @@ public class PlayerActivity extends Activity {
                 JSONObject s = new JSONObject(get(statusUrl, 3000));
                 if (!"idle".equals(s.optString("state"))) {
                     double speed = s.optDouble("downloadSpeed", 0);
-                    text = String.format(Locale.US, "%d peers · %s",
+                    text = String.format(Locale.US, l("%d peers · %s"),
                             s.optInt("peers"), speed > 1048576
                                     ? String.format(Locale.US, "%.1f MB/s", speed / 1048576)
                                     : String.format(Locale.US, "%d KB/s", Math.round(speed / 1024)));
-                    if (s.optBoolean("lowDisk")) text += " · storage almost full";
+                    if (s.optBoolean("lowDisk")) text += " · " + l("storage almost full");
                 }
             } catch (Exception ignored) {
                 // engine busy
@@ -481,12 +489,12 @@ public class PlayerActivity extends Activity {
     private void showError(PlaybackException error) {
         String msg = error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
                 || error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS
-                ? "This source could not be loaded (too few peers?). Try another source."
-                : "Playback failed: " + error.getErrorCodeName();
+                ? l("This source could not be loaded (too few peers?). Try another source.")
+                : l("Playback failed: ") + error.getErrorCodeName();
         new AlertDialog.Builder(this)
                 .setTitle("CineMoy")
                 .setMessage(msg)
-                .setPositiveButton("Close", (d, w) -> finish())
+                .setPositiveButton(l("Close"), (d, w) -> finish())
                 .setOnCancelListener(d -> finish())
                 .show();
     }
