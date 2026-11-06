@@ -13,3 +13,5 @@ android/local.properties
 android/keystore.properties
 android/*.jks
 android/.cache/
+graphify-out/
+.claude/handoff/
