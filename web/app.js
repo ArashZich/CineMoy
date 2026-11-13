@@ -729,9 +729,15 @@ function pickBest(list, { same, bingeGroup, secs } = {}) {
   if (!list.length) return null;
   const again = same && list.find(s => (same.infoHash ? s.infoHash === same.infoHash && (s.fileIdx ?? null) === (same.fileIdx ?? null) : same.url && s.url === same.url));
   if (again) return again;
+  const score = sourceScore({ bingeGroup, secs });
+  return list.map(s => [score(s), s]).reduce((a, b) => (b[0] < a[0] ? b : a))[1];
+}
+
+// Lower is better. Also orders the source list, so its top entries are the ones Play would pick.
+function sourceScore({ bingeGroup, secs } = {}) {
   const order = QUALITY_ORDER[settings.quality] || QUALITY_ORDER['1080p'];
   const speed = netSpeed();
-  const score = s => {
+  return s => {
     let x = order.indexOf(qOf(s)) * 100;
     // Too big for the measured connection: it would keep stopping. Lower quality beats that.
     const need = secs && speed ? needBps(s, secs) : 0;
@@ -748,7 +754,6 @@ function pickBest(list, { same, bingeGroup, secs } = {}) {
     if (bingeGroup && s.bingeGroup === bingeGroup) x -= 150;
     return x;
   };
-  return list.map(s => [score(s), s]).reduce((a, b) => (b[0] < a[0] ? b : a))[1];
 }
 
 async function detail(type, id, videoId) {
@@ -849,8 +854,10 @@ async function loadSources(meta, video) {
 
   const qualities = ['All', ...['4K', '1080p', '720p', 'SD'].filter(q => list.some(s => qOf(s) === q))];
   let filter = 'All';
+  const score = sourceScore({ secs });
+  const rank = new Map(list.map(s => [s, s === best ? -Infinity : score(s)]));
   const render = () => {
-    const shown = list.filter(s => filter === 'All' || qOf(s) === filter);
+    const shown = list.filter(s => filter === 'All' || qOf(s) === filter).sort((a, b) => rank.get(a) - rank.get(b));
     box.innerHTML = shown.map((s, i) => {
       const q = qOf(s);
       const need = speed ? needBps(s, secs) : 0;
