@@ -39,8 +39,7 @@ fs.rmSync(CACHE_DIR, { recursive: true, force: true });
 const { torrentPort, uploadLimit } = options;
 const client = new WebTorrent({
   maxConns: 100,
-  torrentPort,
-  dhtPort: torrentPort,
+  torrentPort, // TCP + uTP (UDP). The DHT keeps a random port: on the same UDP port the bind fails and the client dies.
   uploadLimit: uploadLimit >= 0 ? uploadLimit * 1024 : -1,
 });
 client.on('error', e => console.error('[torrent]', e.message));
