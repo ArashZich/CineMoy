@@ -99,6 +99,15 @@ export function createApp(ctx) {
 
   app.get('/api/status/:hash', (req, res) => res.json(torrent.status(req.params.hash)));
 
+  // Start finding peers and fetching the torrent's metadata while the viewer is still on the
+  // title page (often most of the wait on slow links). Nothing is downloaded until Play.
+  app.get('/api/warm/:hash', (req, res) => {
+    if (!/^[a-f0-9]{40}$/i.test(req.params.hash)) return res.status(400).end();
+    const tr = [].concat(req.query.tr || []).filter(t => /^(udp|https?|wss?):\/\//.test(t));
+    torrent.getTorrent(req.params.hash, tr).catch(() => {});
+    res.status(204).end();
+  });
+
   app.get('/api/probe', wrap(async (req, res) => {
     if (!ffmpeg.available) return res.json({ available: false });
     res.json({ available: true, ...(await ffmpeg.probe(sourceUrl(req.query))) });

@@ -849,6 +849,11 @@ async function loadSources(meta, video) {
   actions.innerHTML = `<button class="pill primary play-btn focusable" id="playBest">▶ ${playLabel}</button>
     <span class="play-src">${facts}</span>`;
   $('#playBest').onclick = () => player.open({ meta, video, stream: best });
+  if (best.infoHash) {
+    const tr = new URLSearchParams();
+    (best.trackers || []).slice(0, 6).forEach(x => tr.append('tr', x));
+    fetch(api(`/api/warm/${best.infoHash}?${tr}`)).catch(() => {}); // peers are ready by the time Play is pressed
+  }
   // On a TV nothing is focused after navigation: start on the Play button.
   if (!view.contains(document.activeElement) || document.activeElement === document.body) $('#playBest').focus();
 
