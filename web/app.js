@@ -18,6 +18,10 @@ const store = {
 };
 const DEFAULTS = { apiBase: '', torrentio: '', subdlKey: '', subLangs: 'fa,en', subAddons: '', subSize: 34, autoSub: true, quality: '1080p', profileName: '' };
 let settings = { ...DEFAULTS, ...store.get('settings', {}) };
+// Torrent download speed measured while playing (bytes/s), remembered across visits, so source
+// lists can tell which sources this connection streams without stopping.
+const netSpeed = () => store.get('netSpeed', 0);
+const recordSpeed = bps => { const old = netSpeed(); store.set('netSpeed', Math.round(old ? old * 0.8 + bps * 0.2 : bps)); };
 let serverConfig = { ffmpeg: false, defaults: {} };
 
 const api = p => (settings.apiBase || '').replace(/\/+$/, '') + p;
@@ -706,6 +710,9 @@ const sizeGB = s => {
   const m = /([\d.]+)\s*([KMGT])B/i.exec(s.size || '');
   return m ? Number(m[1]) * { K: 1e-6, M: 1e-3, G: 1, T: 1000 }[m[2].toUpperCase()] : 0;
 };
+const runtimeSecs = (meta, ep) => (Number(/^(\d+)/.exec(String(meta?.runtime ?? ''))?.[1]) || (ep || meta?.type === 'series' ? 45 : 110)) * 60;
+// Average speed a torrent source needs to play without stopping (+25% headroom); 0 = unknown.
+const needBps = (s, secs) => (s.infoHash && sizeGB(s) ? sizeGB(s) * 1e9 / secs * 1.25 : 0);
 const isHardCodec = s => HARD_CODEC.test(`${s.release} ${s.filename || ''} ${s.quality}`);
 // The Android player and ffmpeg compatibility mode decode everything; plain browsers don't.
 const canPlayHardCodecs = () => !!window.CineMoyAndroid || serverConfig.ffmpeg;
@@ -718,13 +725,17 @@ const QUALITY_ORDER = {
 // The source the "Play" button uses: preferred quality, well seeded, playable on this device,
 // not needlessly huge. `same` (last used source) and `bingeGroup` (same release as the previous
 // episode) win when present.
-function pickBest(list, { same, bingeGroup } = {}) {
+function pickBest(list, { same, bingeGroup, secs } = {}) {
   if (!list.length) return null;
   const again = same && list.find(s => (same.infoHash ? s.infoHash === same.infoHash && (s.fileIdx ?? null) === (same.fileIdx ?? null) : same.url && s.url === same.url));
   if (again) return again;
   const order = QUALITY_ORDER[settings.quality] || QUALITY_ORDER['1080p'];
+  const speed = netSpeed();
   const score = s => {
     let x = order.indexOf(qOf(s)) * 100;
+    // Too big for the measured connection: it would keep stopping. Lower quality beats that.
+    const need = secs && speed ? needBps(s, secs) : 0;
+    if (need > speed) x += 250 + Math.min(200, (need / speed) * 20);
     if (s.infoHash) x += s.seeders < 3 ? 400 : -Math.min(60, Math.log2(s.seeders + 1) * 10);
     else x -= 60; // debrid link: instant
     if (isHardCodec(s) && !canPlayHardCodecs()) x += 300;
@@ -822,8 +833,11 @@ async function loadSources(meta, video) {
   // One-click play: resume with the same source if there is saved progress for this video.
   const saved = progress.get(meta.id);
   const resume = saved?.videoId === videoId && saved.pos > 30 ? saved : null;
-  const best = pickBest(list, { same: resume?.src });
-  const facts = [qOf(best), best.size, best.infoHash ? `👤 ${best.seeders}` : '⚡ Debrid'].filter(Boolean).map(esc).join(' · ');
+  const secs = runtimeSecs(meta, video);
+  const speed = netSpeed();
+  const best = pickBest(list, { same: resume?.src, secs });
+  const facts = [qOf(best), best.size, best.infoHash ? `👤 ${best.seeders}` : '⚡ Debrid',
+    speed && t('Your speed ~{speed}', { speed: fmtSpeed(speed) })].filter(Boolean).map(esc).join(' · ');
   const playLabel = resume
     ? (video ? t('Resume S{season} E{episode} · {time}', { season: video.season, episode: video.episode, time: fmtTime(resume.pos) }) : t('Resume · {time}', { time: fmtTime(resume.pos) }))
     : (video ? t('Play S{season} E{episode}', { season: video.season, episode: video.episode }) : t('Play'));
@@ -839,10 +853,14 @@ async function loadSources(meta, video) {
     const shown = list.filter(s => filter === 'All' || qOf(s) === filter);
     box.innerHTML = shown.map((s, i) => {
       const q = qOf(s);
+      const need = speed ? needBps(s, secs) : 0;
+      const fit = !need ? '' : need <= speed
+        ? `<span class="badge fa">${t('Smooth on your connection')}</span>`
+        : `<span class="badge">${esc(t('Needs {speed}', { speed: fmtSpeed(need) }))}</span>`;
       return `<button class="src focusable" data-i="${list.indexOf(s)}">
         <div class="q ${q === '4K' ? 'k4' : q === '1080p' ? 'p1080' : ''}">${q}</div>
         <div><div class="rel">${esc(s.release)}</div>
-          <div class="facts">${s === best ? `<span class="badge best">${t('★ Best pick')}</span>` : ''}${s.size ? `<span>💾 ${esc(s.size)}</span>` : ''}${s.infoHash ? `<span class="seed">👤 ${s.seeders}</span>` : '<span class="seed">⚡ Debrid</span>'}
+          <div class="facts">${s === best ? `<span class="badge best">${t('★ Best pick')}</span>` : ''}${s.size ? `<span>💾 ${esc(s.size)}</span>` : ''}${s.infoHash ? `<span class="seed">👤 ${s.seeders}</span>` : '<span class="seed">⚡ Debrid</span>'}${fit}
             ${s.source ? `<span>${esc(s.source)}</span>` : ''}
             ${FARSI_AUDIO.test(s.release + s.filename) ? `<span class="badge fa">${t('Farsi audio')}</span>` : ''}
             ${isHardCodec(s) && !canPlayHardCodecs() ? `<span class="badge" title="${esc(t('Browsers usually cannot decode this codec. Install ffmpeg on the server.'))}">${t('may not play')}</span>` : ''}
@@ -987,13 +1005,21 @@ const player = (() => {
   }
 
   function pollStatus(hash) {
+    let samples = 0;
+    const need = needBps(st.stream, runtimeSecs(st.meta, st.ep));
     const tick = async () => {
       try {
         const s = await getJSON(`/api/status/${hash}`);
         if (s.state === 'idle') return;
+        // Skip the first ~12 s while peers are still being found; a finished download says nothing.
+        const measuring = s.state === 'ready' && s.peers > 0 && s.progress < 0.97 && ++samples > 8;
+        if (measuring) recordSpeed(s.downloadSpeed);
         const txt = `👤 ${lang === 'fa' ? faDigits(s.peers) : s.peers} ${t('peers')} · ⬇ ${fmtSpeed(s.downloadSpeed)}`;
         $('#pStats').textContent = txt;
-        if (!loading.hidden && $('#loadingText')) $('#loadingText').textContent = (s.state === 'ready' ? t('Buffering…') : t('Connecting to peers…')) + '\n' + txt;
+        const tooSlow = measuring && need && netSpeed() < need
+          ? '\n' + t('Your speed is {speed}, this source needs about {need}. Pick a smaller source.', { speed: fmtSpeed(netSpeed()), need: fmtSpeed(need) })
+          : '';
+        if (!loading.hidden && $('#loadingText')) $('#loadingText').textContent = (s.state === 'ready' ? t('Buffering…') : t('Connecting to peers…')) + '\n' + txt + tooSlow;
       } catch { /* server busy */ }
     };
     tick();
@@ -1230,7 +1256,7 @@ const player = (() => {
     showLoading(t('Finding S{season}E{episode}…', { season: next.season, episode: next.episode }));
     try {
       const list = await cachedJSON(streamsPath('series', next.id), 5 * 60 * 1000);
-      const pick = pickBest(list, { bingeGroup: stream.bingeGroup });
+      const pick = pickBest(list, { bingeGroup: stream.bingeGroup, secs: runtimeSecs(meta, next) });
       if (!pick) throw new Error(t('No sources for next episode'));
       open({ meta, video: next, stream: pick, resumeAt: 0 });
     } catch (e) {
